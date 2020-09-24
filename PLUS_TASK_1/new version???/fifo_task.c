@@ -57,7 +57,7 @@ int main(int argc, char* argv[]) {
 
 		// Create the fifo
 		if (mkfifo(FIFO_NAME, PERMISSIONS) == -1) {
-			printf("Can't create the fifo!\n");
+			// can't create the fifo!
 			return -1;
 		}
 
