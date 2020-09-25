@@ -20,6 +20,7 @@ int main(int argc, char* argv[]) {
 
 	switch (argc) {
 	case 1: ;
+		fork();
 		// No arguments, read from the fifo
 		if (access(FIFO_NAME, R_OK) != 0) { 
 			return -1;
@@ -49,7 +50,7 @@ int main(int argc, char* argv[]) {
 		return 0;
 	case 2: ;
 		// Write into the fifo from the file
-
+		fork();
 		// If file exists, the other process is running
 		if (access(FIFO_NAME, W_OK) == 0) {
 			return -1;
