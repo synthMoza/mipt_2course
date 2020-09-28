@@ -19,11 +19,8 @@ int main() {
 
 	// Read the target fifo's name from cross_proc fifo
 	read_bytes = read(cross_proc, &read_pid, sizeof(pid_t));
-	if (read_pid == 0) {
-		printf("Reader: wrong read pid!\n");
-		exit(-1);
-	}
-	if (read_bytes == -1) {
+
+	if (read_bytes == -1 || read_bytes == 0) {
 		printf("Reader: error reading writer's pid!\n");
 		exit(-1);
 	}
@@ -56,7 +53,6 @@ int main() {
 	close(cross_proc);
 
 	remove(cross_proc_s);
-	remove(CROSS_PROC);
-
+	
 	return 0;
 }

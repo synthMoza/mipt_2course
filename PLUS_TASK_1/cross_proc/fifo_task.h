@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #define BUF_SIZE 5
 #define CROSS_PROC_FLENGTH 256

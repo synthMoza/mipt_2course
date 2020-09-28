@@ -24,21 +24,14 @@ int main(int argc, char *argv[]) {
 		exit(-1);
 	}
 
-	// Open fifo for sending pid of process
-	cross_proc = open(CROSS_PROC, O_WRONLY);
-	if (cross_proc == -1) {
-		// Fifo hasn't been created yet
-		if (mkfifo(CROSS_PROC, PERMISSIONS) == -1) {
-			printf("Writer: can't create CROSS_PROC fifo!\n");
-			exit(-1);
-		}
-		cross_proc = open(CROSS_PROC, O_WRONLY);
+	if (mkfifo(CROSS_PROC, PERMISSIONS) == -1 && errno != EEXIST) {
+		printf("Writer: can't create CROSS_PROC fifo!\n");
+		exit(-1);
 	}
+	cross_proc = open(CROSS_PROC, O_WRONLY);
 
 	// Write current process's pid into cross_proc fifo
 	write(cross_proc, &cur_pid, sizeof(pid_t));
-
-	close(cross_proc);
 
 	target_fifo = open(cross_proc_s, O_WRONLY);
 	if (target_fifo == -1) {
@@ -71,6 +64,10 @@ int main(int argc, char *argv[]) {
 
 	close(target_fifo);
 	close(file);
+	close(cross_proc);
+
+	remove(cross_proc_s);
+
 	return 0;
 }
 
