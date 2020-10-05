@@ -60,40 +60,40 @@ int main() {
 
 	FD_ZERO(&readfds);
 	FD_SET(target_fifo, &readfds);
-	timeout.tv_sec = TIMEOUT_SEC;
-	timeout.tv_usec = 0;
-	slct = select(target_fifo + 1, &readfds, NULL, NULL, &timeout);
 
-	if (slct == -1) {
-		printf("Reader: select error!\n");
-		exit(-1);
-	}
+	while (1) {
+		timeout.tv_sec = TIMEOUT_SEC;
+		timeout.tv_usec = 0;
+		slct = select(target_fifo + 1, &readfds, NULL, NULL, &timeout);
 
-	if (slct == 0) {
-		printf("Reader: \'select\' didn't find any data!\n");
-		exit(-1);
-	}
+		if (slct == -1) {
+			printf("Reader: select error!\n");
+			exit(-1);
+		}
 
-	if (!FD_ISSET(target_fifo, &readfds)) {
-		printf("Reader: can't find file in readfds!\n");
-		exit(-1);
-	}
+		if (slct == 0) {
+			printf("Reader: \'select\' didn't find any data!\n");
+			exit(-1);
+		}
 
-	// Read from target fifo and writeinto stdout
-	while ((read_bytes = read(target_fifo, &buf, BUF_SIZE)) == BUF_SIZE) {
-		write(STDOUT_FILENO, &buf, read_bytes);
-		DELAY;
+		if (!FD_ISSET(target_fifo, &readfds)) {
+			printf("Reader: can't find file in readfds!\n");
+			exit(-1);
+		}
+
+		read_bytes = read(target_fifo, &buf, BUF_SIZE);
+
+		if (read_bytes == BUF_SIZE) {
+			write(STDOUT_FILENO, &buf, read_bytes);
+			DELAY;
+		} else {
+			break;
+		}
 	}
 
 	if (read_bytes == -1) {
-		if (errno == EWOULDBLOCK) {
-			printf("WOULDBLOCK!\n");
-			write(STDOUT_FILENO, &buf, read_bytes);
-		}
-		else {
-			printf("Reader: error reading from target fifo!\n");
-			exit(-1);
-		}
+		printf("Reader: error reading from target fifo!\n");
+		exit(-1);
 	}
 
 	if (read_bytes) {
