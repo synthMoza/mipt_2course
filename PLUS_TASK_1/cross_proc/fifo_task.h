@@ -1,5 +1,7 @@
 #pragma once
 
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/wait.h>
