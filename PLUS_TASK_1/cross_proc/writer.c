@@ -63,7 +63,5 @@ int main(int argc, char *argv[]) {
 	close(file);
 	close(cross_proc);
 
-	//remove(cross_proc_s);
-
 	return 0;
 }
