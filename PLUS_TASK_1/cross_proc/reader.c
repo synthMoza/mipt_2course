@@ -30,6 +30,7 @@ int main() {
 	FD_SET(cross_proc, &readfds);
 
 	if (select(cross_proc + 1, &readfds, NULL, NULL, &timeout) != 1) {
+		perror("");
 		printf("Select error!\n");
 		exit(-1);
 	}
@@ -37,6 +38,7 @@ int main() {
 	read_bytes = read(cross_proc, &read_pid, sizeof(pid_t));
 
 	if (read_bytes == -1 || read_bytes == 0) {
+		perror("");
 		printf("Reader: error reading writer's pid!\n");
 		exit(-1);
 	}
@@ -45,17 +47,25 @@ int main() {
 	tostring(read_pid, cross_proc_s);
 	target_fifo = open(cross_proc_s, O_RDONLY | O_NONBLOCK);
 	if (target_fifo == -1) {
+		perror("");
 		printf("Reader: can't open the target fifo!\n");
 		exit(-1);
 	}
 
 	flags = fcntl(target_fifo, F_SETFL, O_RDONLY);
 
-	while ((spliced = splice(target_fifo, NULL, STDOUT_FILENO, NULL, BUF_SIZE, SPLICE_F_MOVE)) == BUF_SIZE) ;
+	while ((read_bytes = read(target_fifo, buf, BUF_SIZE)) == BUF_SIZE) {
+		write(STDOUT_FILENO, buf, BUF_SIZE);
+	}
 
-	if (spliced == -1) {
-		printf("Splice error!\n");
+	if (read_bytes == -1) {
+		perror("");
+		printf("Read error!\n");
 		exit(-1);
+	}
+
+	if (read_bytes) {
+		write(STDOUT_FILENO, buf, read_bytes);
 	}
 
 	close(target_fifo);

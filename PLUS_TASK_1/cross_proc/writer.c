@@ -12,21 +12,17 @@ int main(int argc, char *argv[]) {
 	int read_bytes = 0;
 
 	if (argc != 2) {
+		perror("");
 		printf("Writer: wrong argument input!\n");
 		exit(-1);
 	}
 
 	cur_pid = getpid();
 
-	// Open input file
-	file = open(argv[1], O_RDONLY);
-	if (file == -1) {
-		printf("Writer: can't open the input file!\n");
-		exit(-1);
-	}
 	// Create and open target fifo in nonblocking mode
 	tostring(cur_pid, cross_proc_s);
 	if (mkfifo(cross_proc_s, PERMISSIONS) == -1) {
+		perror("");
 		printf("Writer: can't create target fifo!\n");
 		exit(-1);
 	}
@@ -34,29 +30,39 @@ int main(int argc, char *argv[]) {
 
 	// Create shared fifo
 	if (mkfifo(CROSS_PROC, PERMISSIONS) == -1 && errno != EEXIST) {
+		perror("");
 		printf("Writer: can't create CROSS_PROC fifo!\n");
 		exit(-1);
 	}
 	// Wait for the reader to join this writer by openning in block mode
 	cross_proc = open(CROSS_PROC, O_WRONLY);
 
+	// Open input file
+	file = open(argv[1], O_RDONLY);
+	if (file == -1)
+	{
+		printf("Writer: can't open the input file!\n");
+		exit(-1);
+	}
+
 	// Write current process's pid into cross_proc fifo
 	write(cross_proc, &cur_pid, sizeof(pid_t));
+
+	flags = fcntl(target_fifo, F_SETFL, O_WRONLY);
 
 	// Write everything into fifo from the input file
 	while ((read_bytes = read(file, &buf, BUF_SIZE)) == BUF_SIZE) {
 		write(target_fifo, &buf, read_bytes);
-		DELAY;
 	}
 
 	if (read_bytes == -1) {
+		perror("");
 		printf("Writer: error reading from file!\n");
 		exit(-1);
 	}
 
 	if (read_bytes) {
 		write(target_fifo, &buf, read_bytes);
-		DELAY;
 	}
 
 	close(target_fifo);

@@ -13,7 +13,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#define BUF_SIZE 20
+#define BUF_SIZE 1024
 #define CROSS_PROC_FLENGTH 256
 #define CROSS_PROC "cross_proc"
 #define PERMISSIONS S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
