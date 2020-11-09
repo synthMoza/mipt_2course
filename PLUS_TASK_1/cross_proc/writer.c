@@ -8,6 +8,7 @@ int main(int argc, char *argv[]) {
 	int target_fifo = 0;
 	char cross_proc_s[CROSS_PROC_FLENGTH] = {0};
 	char buf[BUF_SIZE] = {0};
+	int mark = 0;
 
 	int read_bytes = 0;
 
@@ -34,25 +35,48 @@ int main(int argc, char *argv[]) {
 		printf("Writer: can't create CROSS_PROC fifo!\n");
 		exit(-1);
 	}
+
 	// Wait for the reader to join this writer by openning in block mode
 	cross_proc = open(CROSS_PROC, O_WRONLY);
 
 	// Open input file
 	file = open(argv[1], O_RDONLY);
-	if (file == -1)
-	{
+	if (file == -1) {
 		printf("Writer: can't open the input file!\n");
 		exit(-1);
 	}
 
 	// Write current process's pid into cross_proc fifo
-	write(cross_proc, &cur_pid, sizeof(pid_t));
+	if (write(cross_proc, &cur_pid, sizeof(pid_t)) == -1) {
+		perror("");
+		printf("Writer: error writing pid into fifo\n");
+		exit(-1);
+	}
 
-	flags = fcntl(target_fifo, F_SETFL, O_WRONLY);
+	flags = fcntl(target_fifo, F_GETFL, 0);
+	flags = fcntl(target_fifo, F_SETFL, flags & ~O_NONBLOCK);
+
+	// printf("CHECK\n");
+	// fflush(stdout);
+
+	// // Check the state of reader
+	// read_bytes = read(target_fifo, &mark, sizeof(int));
+	// if (read_bytes != sizeof(int)) {
+	// 	perror("");
+	// 	printf("Writer: can't get reader state mark\n");
+	// 	exit(-1);
+	// }
+
+	// printf("CHECK\n");
+	// fflush(stdout);
 
 	// Write everything into fifo from the input file
 	while ((read_bytes = read(file, &buf, BUF_SIZE)) == BUF_SIZE) {
-		write(target_fifo, &buf, read_bytes);
+		if (write(target_fifo, &buf, read_bytes) == -1) {
+			perror("");
+			printf("Writer: error writing data into fifo\n");
+			exit(-1);
+		}
 	}
 
 	if (read_bytes == -1) {
