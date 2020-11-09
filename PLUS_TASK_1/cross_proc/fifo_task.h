@@ -14,11 +14,10 @@
 #include <errno.h>
 
 #define BUF_SIZE 1024
-#define MARK 13
 #define CROSS_PROC_FLENGTH 256
 #define CROSS_PROC "cross_proc"
 #define PERMISSIONS S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
 #define TIMEOUT_SEC 5
-#define DELAY sleep(1)
+#define DELAY sleep(2)
 
 void tostring(int data, char *string);

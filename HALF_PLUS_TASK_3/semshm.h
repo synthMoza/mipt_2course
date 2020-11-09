@@ -6,7 +6,7 @@
 #define SEM_NUM 5
 #define TRY_TIME 1
 
-#define DELAY sleep(2)
+#define DELAY sleep(1)
 
 #define KEY_FILE "/tmp/keyfile"
 
@@ -28,3 +28,4 @@ int P(int semid, size_t sem_num, int flags);
 int V(int semid, size_t sem_num, int flags);
 int semRemove(int semid);
 int shmRemove(const void* shmaddr);
+int semEquals(int semid, size_t sem_num, int value);

@@ -7,9 +7,7 @@ int main(int argc, char *argv[])
     int tmp = 0;
     int semid = 0;
     int shmid = 0;
-    int readbytes = 0;
     char *shm = NULL;
-    char buf[BUF_SIZE] = {0};
 
     // Create key file in order to 
     tmp = open(KEY_FILE, IPC_CREAT | 0666);
@@ -24,13 +22,13 @@ int main(int argc, char *argv[])
 
             // Semaphores have already been created by other process
             for (int i = 0; i < MAX_TRIES; i++) {
-                printf("Reader: attempt %d, wait for semaphore initialization...\n", i + 1);
+                // printf("Reader: attempt %d, wait for semaphore initialization...\n", i + 1);
                 if (semctl(semid, 0, IPC_STAT, &ds) == -1) {
                     printf("Reader: error with IPC_STAT\n");
                     exit(-1);
                 }
                 if (ds.sem_otime != 0) {
-                    printf("Reader: sucessful attempt!\n");
+                    // printf("Reader: sucessful attempt!\n");
                 semid = semget(key, SEM_NUM, 0666);
                     if (semid == -1) {
                         printf("Reader: error openning semaphore!\n");
@@ -84,16 +82,31 @@ int main(int argc, char *argv[])
         exit(-1);
     }
 
-    P(semid, 4, SEM_UNDO);
-    while (sign != 1) {
+    if (P(semid, 4, SEM_UNDO | IPC_NOWAIT) == -1) {
+        perror("");
+        printf("Reader: other program is running!\n");
+        exit(-1);
+    }
+    while (sign == 0) {
         P(semid, 2, 0);
         P(semid, 0, SEM_UNDO);
         sign = shm[0];
-        write(STDOUT_FILENO, shm + 1, BUF_SIZE - 1);
-        memset(shm, 0, BUF_SIZE);
+
+        if (sign == 0) {
+            write(STDOUT_FILENO, shm + 1, BUF_SIZE - 1);
+            memset(shm, 0, BUF_SIZE);
+        } else if (sign > 0) {
+            write(STDOUT_FILENO, shm + 1, sign);
+        } else {
+            printf("Reader: unknown error!\n");
+            exit(-1);
+        }
+        
+        //DELAY;
         V(semid, 0, SEM_UNDO);
         V(semid, 1, 0);
     }
+    
     V(semid, 4, SEM_UNDO);
 
     shmRemove(shm);

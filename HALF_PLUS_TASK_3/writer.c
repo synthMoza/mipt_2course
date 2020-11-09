@@ -33,13 +33,13 @@ int main(int argc, char *argv[]) {
 
             // Semaphores have already been created by other process
             for (int i = 0; i < MAX_TRIES; i++) {
-                printf("Writer: attempt %d, wait for semaphore initialization...\n", i + 1);
+                // printf("Writer: attempt %d, wait for semaphore initialization...\n", i + 1);
                 if (semctl(semid, 0, IPC_STAT, &ds) == -1) {
                     printf("Writer: error with IPC_STAT\n");
                     exit(-1);
                 }
                 if (ds.sem_otime != 0) {
-                    printf("Writer: sucessful attempt!\n");
+                    // printf("Writer: sucessful attempt!\n");
                     semid = semget(key, SEM_NUM, 0666);
                     if (semid == -1) {
                         printf("Writer: error openning semaphore!\n");
@@ -90,9 +90,15 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
     
-    P(semid, 3, SEM_UNDO);
+    // IPC_NOWAIT to make only one writer work at the same time
+    if (P(semid, 3, SEM_UNDO | IPC_NOWAIT) == -1) {
+        perror("");
+        printf("Writer: other program is running!\n");
+        exit(-1);
+    }
+
     while ((readbytes = read(file, buf + 1, BUF_SIZE - 1)) == (BUF_SIZE - 1)) {
-        buf[0] = (readbytes == 0) ? 1 : 0;
+        buf[0] = (readbytes == BUF_SIZE - 1) ? 0 : readbytes; 
         
         P(semid, 1, 0);
         P(semid, 0, SEM_UNDO);
@@ -108,19 +114,22 @@ int main(int argc, char *argv[]) {
     }
 
     if (readbytes > 0) {
-        buf[0] = 1;
+        buf[0] = readbytes;
 
         P(semid, 1, 0);
         P(semid, 0, 0);
         memcpy(shm, buf, readbytes + 1);
         memset(buf, 0, BUF_SIZE);
+        //DELAY;
         V(semid, 0, 0);
         V(semid, 2, 0);
     }
+    
     V(semid, 3, SEM_UNDO);
 
     shmRemove(shm);
     semRemove(semid);
     close(tmp);
+
     return 0;
 }
