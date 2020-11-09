@@ -82,3 +82,16 @@ Situations:
         2) Read succedes - open target fifo
             1) Open fails - reader has already died, finish the program (0)
             2) Opens succedes - write data into target_fifo until end or reader dies (0)
+
+Critical sections:
+Reader:
+1)  Lines: 59-59 ('read' syscall)
+    Resource: target_fifo
+    Who: reader and writer
+Writer:
+1)  Lines: 31-31 ('read' syscall)
+    Resource: cross_proc FIFO
+    Who: several writers
+2)  Lines: 60-60
+    Resource: target_fifo
+    Who: reader and writer
