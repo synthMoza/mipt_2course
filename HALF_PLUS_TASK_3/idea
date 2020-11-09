@@ -1,0 +1,57 @@
+SEMAPHORES:
+0: mutex - read/write atomatically [SEM_UNDO]
+    start_value = 1;
+1: empty - write only if the memory is empty (data was consumed successfuly)
+    start_value = 1;
+2: full - read only if the memory is full (data was produced)
+    start_value = 0;
+3: writer - only one writer at a time [SEM_UNDO | IPC_NOWAIT]
+    start_value = 1;
+4: reader - only one reader at a time [SEM_UNDO | IPC_NOWAIT]
+    start_value = 0;
+
+MAN
+
+1. Initialization can be done using semctl(2) SETVAL or SETALL operation.  
+Where multiple peers do not know who will be  the  first  to
+initialize  the  set,  checking for a nonzero sem_otime in 
+the associated data structure retrieved by a semctl(2) IPC_STAT operation
+can be used to avoid races.
+
+
+//////////////////////
+P: while s == 0 wait;
+s = s - 1;
+
+V: s = s + 1;
+
+writer:
+P(write)
+
+    P(empty)
+    P(mutex)
+    читает из файла и записывает в shared memory
+    V(mutex)
+    V(full)
+
+V(write)
+
+reader:
+P(reader)
+    P(full)
+    P(mutex)
+    читает из shared memory и выводит на экран
+    V(mutex)
+    V(empty)
+V(reader)
+
+Critical sections:
+Reader:
+1)  Lines: 53-68
+    Resource: semaphores initialization
+    Who: reader and writer to initialize semaphores
+2)  Lines: 95-99
+    Resource: shared memory
+    Who: writer and reader fight for data in shared memory
+Writer:
+    Same way...
