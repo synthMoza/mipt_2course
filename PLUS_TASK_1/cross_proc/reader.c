@@ -4,16 +4,18 @@ void tostring(int data, char *string);
 
 int main() {
 	int read_bytes = 0;
-	pid_t read_pid = 0;
-	int spliced = 0;
-	int slct = 0;
 	int flags = 0;
 	int cross_proc = 0;
 	int target_fifo = 0;
 	char buf[BUF_SIZE] = {0};
 	char cross_proc_s[CROSS_PROC_FLENGTH] = {0};
-	int mark = MARK;
 	int cur_pid = 0;
+
+	// select vars
+	fd_set readfds;
+	struct timeval timeout;
+	timeout.tv_sec = TIMEOUT_SEC;
+	timeout.tv_usec = 0;
 
 	cur_pid = getpid();
 	// Create and open target fifo in nonblocking mode
@@ -44,6 +46,15 @@ int main() {
 
 	flags = fcntl(target_fifo, F_GETFL, 0);
 	flags = fcntl(target_fifo, F_SETFL, flags & ~O_NONBLOCK);
+
+	FD_ZERO(&readfds);
+	FD_SET(target_fifo, &readfds);
+
+	if (select(cross_proc + 1, &readfds, NULL, NULL, &timeout) != 1) {
+		perror("");
+		printf("Select error!\n");
+		exit(-1);
+	}
 
 	while ((read_bytes = read(target_fifo, buf, BUF_SIZE)) == BUF_SIZE) {
 		write(STDOUT_FILENO, buf, BUF_SIZE);

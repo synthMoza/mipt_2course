@@ -1,14 +1,12 @@
 #include "fifo_task.h"
 
 int main(int argc, char *argv[]) {
-	pid_t cur_pid = 0;
 	int flags = 0;
 	int file = 0;
 	int cross_proc = 0;
 	int target_fifo = 0;
 	char cross_proc_s[CROSS_PROC_FLENGTH] = {0};
 	char buf[BUF_SIZE] = {0};
-	int mark = 0;
 	pid_t read_pid = 0;
 
 	int read_bytes = 0;
