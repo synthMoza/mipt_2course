@@ -96,7 +96,6 @@ int main(int argc, char *argv[]) {
             exit(-1);
         }
 
-        DELAY;
         memcpy(shm, buf, BUF_SIZE);
         memset(buf, 0, BUF_SIZE);
 
@@ -125,7 +124,7 @@ int main(int argc, char *argv[]) {
 
         V(semid, 0, 0);
     }
-    
+
     V(semid, 3, SEM_UNDO);
     P(semid, 4, SEM_UNDO);
 
