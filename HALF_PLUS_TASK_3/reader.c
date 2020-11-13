@@ -40,9 +40,7 @@ int main(int argc, char *argv[])
     P(semid, 2, SEM_UNDO);
 
     while (sign == 0) {
-        //printf("1\n");
         P(semid, 0, 0);
-        //printf("2\n");
 
         // If this is first iteration
         if (cnt == 0) {
