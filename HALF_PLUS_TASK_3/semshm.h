@@ -8,7 +8,7 @@
 
 #define DELAY sleep(1)
 
-#define KEY_FILE "/tmp/keyfile"
+#define KEY_FILE "/tmp/key_file"
 
 #include <string.h>
 #include <stdio.h>

@@ -8,65 +8,16 @@ int main(int argc, char *argv[])
     int semid = 0;
     int shmid = 0;
     char *shm = NULL;
+    int value = 0;
+    int cnt = 0;
 
     // Create key file in order to 
     tmp = open(KEY_FILE, IPC_CREAT | 0666);
     key = ftok(KEY_FILE, ID);
 
-    // Open the semaphores (and maybe initialize them)
-    semid = semget(key, SEM_NUM, IPC_EXCL | IPC_CREAT | 0666);
-    if (semid == -1) {
-        if (errno == EEXIST) {
-            semid = semget(key, SEM_NUM, 0666);
-            struct semid_ds ds;
-
-            // Semaphores have already been created by other process
-            for (int i = 0; i < MAX_TRIES; i++) {
-                // printf("Reader: attempt %d, wait for semaphore initialization...\n", i + 1);
-                if (semctl(semid, 0, IPC_STAT, &ds) == -1) {
-                    printf("Reader: error with IPC_STAT\n");
-                    exit(-1);
-                }
-                if (ds.sem_otime != 0) {
-                    // printf("Reader: sucessful attempt!\n");
-                semid = semget(key, SEM_NUM, 0666);
-                    if (semid == -1) {
-                        printf("Reader: error openning semaphore!\n");
-                        exit(-1);
-                    }
-                    break;
-                }
-                else {
-                    printf("Reader: Attempt failed!\n");
-                }
-
-                sleep(TRY_TIME);
-            }
-        }
-        else {
-            printf("Can't create semaphores!\n");
-            exit(-1);
-        }
-    }
-    else {
-        // Perform 'semop' to change the value of 'sem_otime'
-        struct sembuf sembuf;
-        sembuf.sem_flg = 0;
-        sembuf.sem_num = 2;
-        sembuf.sem_op = 0;
-
-        semInit(semid, 0, 1);
-        semInit(semid, 1, 1);
-        semInit(semid, 2, 0);
-        semInit(semid, 3, 1);
-        semInit(semid, 4, 1);
-
-        if (semop(semid, &sembuf, 1) == -1) {
-            printf("Reader: error during initialization!\n");
-            semRemove(semid);
-            exit(-1);
-        }
-    }
+    // INIT
+    semid = semget(key, SEM_NUM, IPC_CREAT | 0666);
+    semInit(semid, 2, 1);
 
     shmid = shmget(key, BUF_SIZE, IPC_CREAT | 0666);
     if (shmid == -1) {
@@ -82,16 +33,46 @@ int main(int argc, char *argv[])
         exit(-1);
     }
 
-    if (P(semid, 4, SEM_UNDO | IPC_NOWAIT) == -1) {
-        perror("");
-        printf("Reader: other program is running!\n");
-        exit(-1);
-    }
-    while (sign == 0) {
-        P(semid, 2, 0);
-        P(semid, 0, SEM_UNDO);
-        sign = shm[0];
+    // Reader is alive
+    V(semid, 4, SEM_UNDO);
 
+    // Unique reader
+    P(semid, 2, SEM_UNDO);
+
+    while (sign == 0) {
+        //printf("1\n");
+        P(semid, 0, 0);
+        //printf("2\n");
+
+        // If this is first iteration
+        if (cnt == 0) {
+            // If reader dies, release Sem(1)
+            // Sem(1) + 1(SEM_UNDO) - 1 - atomically
+            struct sembuf sembuf[2];
+            sembuf[0].sem_flg = 0;
+            sembuf[0].sem_num = 1;
+            sembuf[0].sem_op = 1;
+
+            sembuf[1].sem_flg = SEM_UNDO;
+            sembuf[1].sem_num = 1;
+            sembuf[1].sem_op = -1;
+
+            if (semop(semid, sembuf, 2) == -1) {
+                perror("");
+                return -1;
+            }
+
+            cnt++;
+        }
+
+        sign = shm[0];
+        value = semctl(semid, 4, GETVAL);
+        if (value != 2 && sign == 0) {
+            printf("\nReader: writer is dead\n");
+            shmRemove(shm);
+            semRemove(semid);
+            exit(-1);
+        }
         if (sign == 0) {
             write(STDOUT_FILENO, shm + 1, BUF_SIZE - 1);
             memset(shm, 0, BUF_SIZE);
@@ -102,12 +83,11 @@ int main(int argc, char *argv[])
             exit(-1);
         }
         
-        //DELAY;
-        V(semid, 0, SEM_UNDO);
+
         V(semid, 1, 0);
     }
-    
-    V(semid, 4, SEM_UNDO);
+    V(semid, 2, SEM_UNDO);
+    P(semid, 4, SEM_UNDO);
 
     shmRemove(shm);
     semRemove(semid);
