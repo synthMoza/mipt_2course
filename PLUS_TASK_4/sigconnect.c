@@ -25,7 +25,7 @@ void sigchld_p_handler(int signum) {
 //! Child's SIGUSR1 handler
 void sigusr1_c_handler(int signum) {}
 
-//! Child's SIGUSR1 handler
+//! Child's SIGUSR2 handler
 void sigusr2_c_handler(int signum) {}
 
 //! Child's SIGHUP (parent's death) handler
@@ -151,8 +151,10 @@ int main(int argc, char* argv[]) {
                         // Send SIGUSR1
                         killret = kill(ppid, SIGUSR1);
                         if (killret == -1) {
-                            perror("");
-                            printf("Child: kill error!\n");
+                            if (errno != ESRCH) {
+                                perror("kill");
+                                printf("Child: kill error!\n");
+                            }
                             exit(-1);
                         }
                         break;
@@ -160,8 +162,10 @@ int main(int argc, char* argv[]) {
                         // Send SIGUSR2
                         killret = kill(ppid, SIGUSR2);
                         if (killret == -1) {
-                            perror("");
-                            printf("Child: kill error!\n");
+                            if (errno != ESRCH) {
+                                perror("kill");
+                                printf("Child: kill error!\n");
+                            }
                             exit(-1);
                         }
                         break;
@@ -200,15 +204,21 @@ int main(int argc, char* argv[]) {
                 sigsuspend(&oldset);
                 symbol = (symbol << 1) | current;
 
+                if (i == sizeof(char) * 8 - 1) {
+                    // The last bit consumed, block SIGCHLD until succesful write
+                    sigprocmask(SIG_BLOCK, &chldset, NULL);
+                }
+
                 killret = kill(cpid, SIGUSR1);
                 if (killret == -1) {
-                    perror("kill");
-                    printf("Parent: kill error!\n");
+                    if (errno != ESRCH) {
+                        perror("kill");
+                        printf("Parent: kill error!\n");
+                    }
+                    
                     exit(-1);
                 }
             }
-            
-            sigprocmask(SIG_BLOCK, &chldset, NULL);
 
             written = write(STDOUT_FILENO, &symbol, sizeof(char));
             if (written == -1) {
