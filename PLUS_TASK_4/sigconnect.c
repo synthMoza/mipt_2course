@@ -35,6 +35,7 @@ void sighup_c_handler(int signum) {
 
 int main(int argc, char* argv[]) {
     pid_t cpid;
+    pid_t pid;
     struct sigaction sigact;
     int sigactret = 0;
     int killret = 0;
@@ -81,8 +82,11 @@ int main(int argc, char* argv[]) {
     sigemptyset(&sigset);
     sigaddset(&sigset, SIGUSR1);
     sigaddset(&sigset, SIGUSR2);
+    sigaddset(&sigset, SIGCHLD);
+    sigaddset(&sigset, SIGHUP);
     sigprocmask(SIG_BLOCK, &sigset, &oldset);
 
+    pid = getpid();
     // Ready to fork
     cpid = fork();
     if (cpid == -1) {
@@ -96,10 +100,14 @@ int main(int argc, char* argv[]) {
         size_t readbytes = 0;
         char symbol = 0;
         int bit = 0;
-        pid_t ppid = 0;
         
         // Prepare for parent's death
         prctl(PR_SET_PDEATHSIG, SIGHUP);
+
+        if (pid != getppid()) {
+            // Parent already died
+            exit(-1);
+        }
 
         // Set up child's signal handler's
         sigemptyset(&sigact.sa_mask);
@@ -132,8 +140,6 @@ int main(int argc, char* argv[]) {
             exit(-1);
         }
 
-        ppid = getppid();
-
         file = open(argv[1], O_RDONLY);
         if (file == -1) {
            perror("open");
@@ -149,7 +155,7 @@ int main(int argc, char* argv[]) {
                 switch (bit) {
                     case 0:
                         // Send SIGUSR1
-                        killret = kill(ppid, SIGUSR1);
+                        killret = kill(pid, SIGUSR1);
                         if (killret == -1) {
                             if (errno != ESRCH) {
                                 perror("kill");
@@ -160,7 +166,7 @@ int main(int argc, char* argv[]) {
                         break;
                     case 1:
                         // Send SIGUSR2
-                        killret = kill(ppid, SIGUSR2);
+                        killret = kill(pid, SIGUSR2);
                         if (killret == -1) {
                             if (errno != ESRCH) {
                                 perror("kill");
@@ -200,13 +206,13 @@ int main(int argc, char* argv[]) {
             symbol = 0;
 
             for (int i = 0; i < sizeof(char) * 8; ++i) {
-                // Wait for SIGUSR1/SIGUSR2
+                // Wait for SIGUSR1/SIGUSR2/SIGCHLD
                 sigsuspend(&oldset);
                 symbol = (symbol << 1) | current;
 
                 if (i == sizeof(char) * 8 - 1) {
-                    // The last bit consumed, block SIGCHLD until succesful write
-                    sigprocmask(SIG_BLOCK, &chldset, NULL);
+                    // If it is the last bit - send signal after writting
+                    break;
                 }
 
                 killret = kill(cpid, SIGUSR1);
@@ -227,7 +233,16 @@ int main(int argc, char* argv[]) {
                 exit(-1);
             }
 
-            sigprocmask(SIG_UNBLOCK, &chldset, NULL);
+            killret = kill(cpid, SIGUSR1);
+            if (killret == -1) {
+                if (errno != ESRCH) {
+                    perror("kill");
+                    printf("Parent: kill error!\n");
+                }
+                
+                exit(-1);
+            }
+
         }
 
         return 0;
