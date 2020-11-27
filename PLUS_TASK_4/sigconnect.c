@@ -197,10 +197,6 @@ int main(int argc, char* argv[]) {
         // Parent process
         int symbol = 0;
         int written = 0;
-        sigset_t chldset;
-
-        sigemptyset(&chldset);
-        sigaddset(&chldset, SIGCHLD);
 
         while (1) {
             symbol = 0;
