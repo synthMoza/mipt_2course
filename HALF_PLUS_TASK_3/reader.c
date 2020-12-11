@@ -55,7 +55,11 @@ int main() {
     semOperate(semid);
 
     // Initialize write to shared memory
-    semInit(semid, 2, 2);
+    if (semInit(semid, 2, 2) == -1) {
+        perror("");
+        printf("Reader: can't initialize semaphore!\n");
+        exit(-1);
+    }
 
     semAddSet(3, 1, SEM_UNDO);  // reader is ready now
     semAddSet(2, -1, SEM_UNDO); // undo if reader dies
