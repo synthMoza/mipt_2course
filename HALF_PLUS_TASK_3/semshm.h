@@ -15,9 +15,20 @@
 
 #define SEM_MAX_OPS 32
 #define KEY_FILE "keyfile"
-#define ID 4
+#define ID 5
 #define SHM_SIZE 32
 #define PERMISSIONS 0666
+
+// List of semaphores:
+// 0 - for proper reader/writer synchronization
+// 1 - indicate writer(s)
+// 2 - write into shared memory
+// 3 - indicate reader(s)
+// 4 - read from shared memory
+
+enum semNames {
+    SYNC_SEM, WRITERS_SEM, WRITE_TO_SEM, READERS_SEM, READ_FROM_SEM
+};
 
 struct sembuf sembuf[SEM_MAX_OPS];
 int op_count = 0;
