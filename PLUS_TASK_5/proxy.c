@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
 
     // Number of clients
     n = input(argc, argv);
-    if (n <= 0 || n == 1)
+    if (n <= 1)
         ERROR("Wrong input!\n");
 
     // Allocate pipes
