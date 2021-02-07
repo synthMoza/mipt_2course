@@ -1,5 +1,16 @@
 CC = gcc
-CFLAGS = -Wall
+CFLAGS = -Wall -g -MD
+MC = valgrind
+MCFLAGS = -s
 
-all: main.c avltree.c avltree.h
-	$(CC) main.c avltree.c -o test $(CFLAGS) 
+all: exec
+
+exec: main.o avltree.o
+	$(CC) -o $@ $^
+
+memcheck: exec
+	$(MC) $(MCFLAGS) ./$<
+clean:
+	rm -rf exec *.d *.o
+
+-include *.d

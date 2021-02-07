@@ -1,7 +1,7 @@
 #include "avltree.h"
 
 // Simple initialization of the node with the given key
-void nodeInit(Node* node, int key) {
+void nodeInit(Node* node, Elem_t key) {
     assert(node);
 
     node->height = 1;
@@ -93,10 +93,16 @@ Node* nodeBalance(Node* node) {
 
 // Insert the key into the given node
 // Returns the new tree with the inserted key
-Node* nodeInsert(Node* node, int key) {
+Node* nodeInsert(Node* node, Elem_t key) {
     if (node == NULL) {
         // Create new node
-        Node* temp = (Node*) calloc(1, sizeof(Node));
+        Node* temp = (Node*) calloc(1, sizeof(*temp));
+        if (temp == NULL) {
+            // Calloc error
+            printf("Calloc error: failed to allocate Node!\n");
+            abort();
+        }
+        nodeInit(temp, key);
         return temp;
     }
 
@@ -129,7 +135,7 @@ Node* nodeRemoveMin(Node* node) {
 
 // Removes the given node from the tree
 // Returns the new tree
-Node* nodeRemove(Node* node, int key) {
+Node* nodeRemove(Node* node, Elem_t key) {
     if (node == NULL)
         return NULL;
     
@@ -138,27 +144,114 @@ Node* nodeRemove(Node* node, int key) {
     else if (key > node->key)
         node->rightChild = nodeRemove(node->rightChild, key);
     else {
+        // Found the key
         Node* q = node->leftChild;
         Node* r = node->rightChild;
-        nodeDestroy(node);
+        free(node);
         if (r == NULL)
             return q;
         Node* min = nodeFindMin(r);
         min->rightChild = nodeRemoveMin(r);
         min->leftChild = q;
+        return nodeBalance(min);
     }
 
     return nodeBalance(node);
 }
 
-// Prints the given tree
-void nodePrint(Node* node) {
-    if (node == NULL)
-        return ;
-    
-    nodePrint(node->leftChild);
+// Bypass function for the AVL tree with the depth traversal
+int nodeForEach(Node* tree, int(*callback)(Node* node, void* data), void* data, treeTraversal type) {
+    assert(tree);
+    int result = 0;
+
+    if (type == NLR) {
+        // Visit node
+        result = callback(tree, data);
+        if (result != EXIT_SUCCESS)
+            return EXIT_FAILURE;
+    } else if (type == RNL) {
+        // Visit right child
+        if (tree->rightChild != NULL) {
+            result = nodeForEach(tree->rightChild, callback, data, type);
+            if (result != EXIT_SUCCESS)
+                return EXIT_FAILURE;
+        }
+    } else {
+        // Visit left child
+        if (tree->leftChild != NULL) {
+            result = nodeForEach(tree->leftChild, callback, data, type);
+            if (result != EXIT_SUCCESS)
+                return EXIT_FAILURE;
+        }
+    }
+
+    if (type == NLR) {
+        // Visit left child
+        if (tree->leftChild != NULL) {
+            result = nodeForEach(tree->leftChild, callback, data, type);
+            if (result != EXIT_SUCCESS)
+                return EXIT_FAILURE;
+        }
+    } else if (type == LRN) {
+        // Visit right child
+        if (tree->rightChild != NULL) {
+            result = nodeForEach(tree->rightChild, callback, data, type);
+            if (result != EXIT_SUCCESS)
+                return EXIT_FAILURE;
+        }
+    } else {
+        // Visit node
+        result = callback(tree, data);
+        if (result != EXIT_SUCCESS)
+            return EXIT_FAILURE;
+    }
+
+    if (type == RNL) {
+        // Visit left child
+        if (tree->leftChild != NULL) {
+            result = nodeForEach(tree->leftChild, callback, data, type);
+            if (result != EXIT_SUCCESS)
+                return EXIT_FAILURE;
+        }
+    } else if (type == LRN) {
+        // Visit node
+        result = callback(tree, data);
+        if (result != EXIT_SUCCESS)
+            return EXIT_FAILURE;
+    } else {
+        // Visit right child
+        if (tree->rightChild != NULL) {
+            result = nodeForEach(tree->rightChild, callback, data, type);
+            if (result != EXIT_SUCCESS)
+                return EXIT_FAILURE;
+        }
+    }
+
+    return EXIT_SUCCESS;
+}
+
+// Debug information about the certain node, not the whole tree
+void nodeDebugPrint(const Node* node) {
+    assert(node);
+
+    printf("Node adress: %p\n", node);
+    // Format of the key is necessary
+    printf("Key: %d\n", node->key);
+    printf("Height: %u\n", node->height);
+    printf("Left child adress: %p\n", node->leftChild);
+    printf("Right child adress: %p\n", node->rightChild);
+}
+
+// Function for printing the Node key (nodeForEach format)
+int print_node(Node* node, void* data) {
     printf("%d ", node->key);
-    nodePrint(node->leftChild);
+    return EXIT_SUCCESS;
+}
+
+// Prints the given tree (in-order)
+void nodePrint(const Node* node, treeTraversal type) {
+    nodeForEach((Node*) node, print_node, NULL, type);
+    printf("\n");
 } 
 
 // Destroys the given tree
@@ -167,6 +260,6 @@ void nodeDestroy(Node* node) {
         return ;
     
     nodeDestroy(node->leftChild);
-    free(node);
     nodeDestroy(node->rightChild);
+    free(node);
 }

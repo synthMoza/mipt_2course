@@ -1,13 +1,18 @@
 #include "avltree.h"
 
 int main() {
-    Node tree;
-    nodeInit(&tree, 10);
+    Node* tree = NULL;
+    int n = 0;
+    int elem = 0;
 
-    nodeInsert(&tree, 20);
-    nodeInsert(&tree, 30);
-    nodeInsert(&tree, 40);
+    scanf("%d", &n);
+    for (int i = 0; i < n; ++i) {
+        scanf("%d", &elem);
+        tree = nodeInsert(tree, elem);
+    }
 
-    nodePrint(&tree);
+    nodePrint(tree, LNR);
+
+    nodeDestroy(tree);
     return 0;
 }
