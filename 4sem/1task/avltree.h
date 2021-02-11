@@ -30,3 +30,4 @@ void nodeDestroy(Node* node);
 Node* nodeFindMin(Node* node);
 void nodeDebugPrint(const Node* node);
 int nodeForEach(Node* tree, int(*callback)(Node* node, void* data), void* data, treeTraversal type);
+
