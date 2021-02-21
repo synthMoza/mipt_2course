@@ -5,13 +5,16 @@ MCFLAGS = -s
 
 all: exec
 
-# Target for testing code in main.c
+# Target for using tree in main.c
 exec: main.o avltree.o
 	$(CC) -o $@ $^
 
 # Check the code for memory leaks
-memcheck: exec
+memcheck: unit_tests_mc
 	$(MC) $(MCFLAGS) ./$<
+
+unit_tests_mc: unit_tests.o avltree.o
+	$(CC) -o $@ $^
 
 # Check the code coverage of this program
 code_coverage: unit_tests.c avltree.c
