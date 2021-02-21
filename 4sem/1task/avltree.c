@@ -1,7 +1,9 @@
 #include "avltree.h"
 
-// Simple initialization of the node with the given key
-void nodeInit(Node* node, Elem_t key) {
+// Constructs the node with the given key
+// @param node the pointer to the node
+// @param keys the key to be put into the tree
+void nodeInit(Node_t* node, Elem_t key) {
     assert(node);
 
     node->height = 1;
@@ -11,8 +13,9 @@ void nodeInit(Node* node, Elem_t key) {
 }
 
 // Calculates the height of the given tree
-// Returns the actual height if the given node is not NULL, else returns 0
-unsigned char nodeHeight(const Node* node) {
+// @param node the given tree
+// @return The actual height if the given node is not NULL, else zero
+unsigned char nodeHeight(const Node_t* node) {
     if (node == NULL)
         return 0;
     else
@@ -20,14 +23,16 @@ unsigned char nodeHeight(const Node* node) {
 }
 
 // Calculates the "balance-factor" of the given tree
-// Returns the difference between the rightChild's and leftChild's heights
-int nodeBFactor(const Node* node) {
+// @param node the given tree
+// @return The difference between the rightChild's and leftChild's heights
+int nodeBFactor(const Node_t* node) {
     int result = nodeHeight(node->rightChild) - nodeHeight(node->leftChild);
     return result;
 }
 
 // Recalculates the height of the given tree
-void nodeFixHeight(Node* node) {
+// @param node the given tree
+void nodeFixHeight(Node_t* node) {
     unsigned char height1 = nodeHeight(node->leftChild);
     unsigned char height2 = nodeHeight(node->rightChild);
     if (height1 > height2) 
@@ -37,12 +42,13 @@ void nodeFixHeight(Node* node) {
 }
 
 // Performs a simple right rotation of the given node
-// Returns rotated node
-Node* nodeRotateRight(Node* p) {
+// @param p the given tree
+// @return The pointer to the rotated tree
+Node_t* nodeRotateRight(Node_t* p) {
     assert(p);
     assert(p->leftChild);
 
-    Node* q = p->leftChild;
+    Node_t* q = p->leftChild;
     p->leftChild = q->rightChild;
     q->rightChild = p;
 
@@ -53,12 +59,13 @@ Node* nodeRotateRight(Node* p) {
 }
 
 // Performs a simple left rotation of the given node
-// Returns rotated node
-Node* nodeRotateLeft(Node* q) {
+// @param p the given tree
+// @return The pointer to the rotated tree
+Node_t* nodeRotateLeft(Node_t* q) {
     assert(q);
     assert(q->rightChild);
 
-    Node* p = q->rightChild;
+    Node_t* p = q->rightChild;
     q->rightChild = p->leftChild;
     p->leftChild = q;
 
@@ -69,8 +76,9 @@ Node* nodeRotateLeft(Node* q) {
 }
 
 // Balances the given tree in terms of AVL
-// Returns the balanced tree
-Node* nodeBalance(Node* node) {
+// @param node the given tree
+// @return The pointer to the balanced tree
+Node_t* nodeBalance(Node_t* node) {
     nodeFixHeight(node);
     int bFactor = nodeBFactor(node);
 
@@ -92,11 +100,13 @@ Node* nodeBalance(Node* node) {
 }
 
 // Insert the key into the given node
-// Returns the new tree with the inserted key
-Node* nodeInsert(Node* node, Elem_t key) {
+// @param node the pointer to the node
+// @param key the key to be put into the node
+// @return The pointer to the new tree
+Node_t* nodeInsert(Node_t* node, Elem_t key) {
     if (node == NULL) {
         // Create new node
-        Node* temp = (Node*) calloc(1, sizeof(*temp));
+        Node_t* temp = (Node_t*) calloc(1, sizeof(*temp));
         if (temp == NULL) {
             // Calloc error
             printf("Calloc error: failed to allocate Node!\n");
@@ -115,17 +125,30 @@ Node* nodeInsert(Node* node, Elem_t key) {
 }
 
 // Finds the minimum key in the given tree
-// Returns the node with the found key
-Node* nodeFindMin(Node* node) {
+// @param node the pointer to the node
+// @return The pointer to the node with the minimum key
+Node_t* nodeFindMin(Node_t* node) {
     if (node->leftChild != NULL)
         return nodeFindMin(node->leftChild);
     else
         return node;
 }
 
+// Finds the maximum key in the given tree
+// @param node the pointer to the node
+// @return The pointer to the node with the maximum key
+Node_t* nodeFindMax(Node_t* node) {
+    if (node->rightChild != NULL)
+        return nodeFindMax(node->rightChild);
+    else
+        return node;
+}
+
 // Removes the minimum element in the given node
-// Returns the new tree
-Node* nodeRemoveMin(Node* node) {
+// @param node the pointer to the node
+// @return The pointer to the tree without the minimum node
+// @note Does not free memory of this node
+Node_t* nodeRemoveMin(Node_t* node) {
     if (node->leftChild == NULL)
         return node->rightChild;
     
@@ -134,8 +157,10 @@ Node* nodeRemoveMin(Node* node) {
 }
 
 // Removes the given node from the tree
-// Returns the new tree
-Node* nodeRemove(Node* node, Elem_t key) {
+// @param node the pointer to the node
+// @param key the key to be put into the node
+// @return The pointer to the tree without the node with this key
+Node_t* nodeRemove(Node_t* node, Elem_t key) {
     if (node == NULL)
         return NULL;
     
@@ -145,12 +170,12 @@ Node* nodeRemove(Node* node, Elem_t key) {
         node->rightChild = nodeRemove(node->rightChild, key);
     else {
         // Found the key
-        Node* q = node->leftChild;
-        Node* r = node->rightChild;
+        Node_t* q = node->leftChild;
+        Node_t* r = node->rightChild;
         free(node);
         if (r == NULL)
             return q;
-        Node* min = nodeFindMin(r);
+        Node_t* min = nodeFindMin(r);
         min->rightChild = nodeRemoveMin(r);
         min->leftChild = q;
         return nodeBalance(min);
@@ -160,7 +185,13 @@ Node* nodeRemove(Node* node, Elem_t key) {
 }
 
 // Bypass function for the AVL tree with the depth traversal
-int nodeForEach(Node* tree, int(*callback)(Node* node, void* data), void* data, treeTraversal type) {
+// @param tree the tree to be interated by
+// @param callback the function that is meant to be done to all nodes, requirments:
+// 1) Must return EXIT_SUCCESS, if it has been completed right, otherwise EXIT_FAILURE
+// 2) It's arguments are: the pointer to the tree - (Node*) node, and the pointer to some memory - (void*) data
+// @param type the type of the traversal of the tree needed for this bypass
+// @return EXIT_SUCCESS on success, otherwise EXIT_FAILURE
+int nodeForEach(Node_t* tree, int(*callback)(Node_t* node, void* data), void* data, treeTraversal type) {
     assert(tree);
     int result = 0;
 
@@ -231,7 +262,8 @@ int nodeForEach(Node* tree, int(*callback)(Node* node, void* data), void* data, 
 }
 
 // Debug information about the certain node, not the whole tree
-void nodeDebugPrint(const Node* node) {
+// @param node the given tree
+void nodeDebugPrint(const Node_t* node) {
     assert(node);
 
     printf("Node adress: %p\n", node);
@@ -243,19 +275,24 @@ void nodeDebugPrint(const Node* node) {
 }
 
 // Function for printing the Node key (nodeForEach format)
-int print_node(Node* node, void* data) {
+// @param node the given tree
+// @param data not needed in this function, may be anything
+int print_node(Node_t* node, void* data) {
     printf("%d ", node->key);
     return EXIT_SUCCESS;
 }
 
 // Prints the given tree (in-order)
-void nodePrint(const Node* node, treeTraversal type) {
-    nodeForEach((Node*) node, print_node, NULL, type);
+// @param node the given tree
+// @param type the type of the traversal of the tree
+void nodePrint(const Node_t* node, treeTraversal type) {
+    nodeForEach((Node_t*) node, print_node, NULL, type);
     printf("\n");
 } 
 
 // Destroys the given tree
-void nodeDestroy(Node* node) {
+// @param tree the given tree
+void nodeDestroy(Node_t* node) {
     if (node == NULL)
         return ;
     
