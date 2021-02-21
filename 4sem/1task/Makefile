@@ -12,6 +12,7 @@ exec: main.o avltree.o
 # Check the code for memory leaks
 memcheck: unit_tests_mc
 	$(MC) $(MCFLAGS) ./$<
+	@ rm -rf $^
 
 unit_tests_mc: unit_tests.o avltree.o
 	$(CC) -o $@ $^
@@ -29,7 +30,7 @@ code_coverage: unit_tests.c avltree.c
 # Clean all executable and temporary files
 .PHONY: clean
 clean:
-	rm -rf exec code_coverage *.d *.o *.gcda *.gcno *.info
-	rm -rf html/*
+	@ rm -rf exec code_coverage *.d *.o *.gcda *.gcno *.info
+	@ rm -rf html/*
 
 -include *.d
