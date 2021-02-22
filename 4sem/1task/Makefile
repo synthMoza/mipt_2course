@@ -2,6 +2,9 @@ CC = gcc
 CFLAGS = -Wall -g -MD
 MC = valgrind
 MCFLAGS = -s
+RMEXEC = exec code_coverage unit_tests_mc
+RMFILES = *.d *.o *.gcda *.gcno *.info
+RMDIR = html/*
 
 all: exec
 
@@ -9,11 +12,14 @@ all: exec
 exec: main.o avltree.o
 	$(CC) -o $@ $^
 
-# Check the code for memory leaks
+%.o: %.c
+	$(CC) -c -o $@ $< $(CFLAGS)
+
+# Check unit tests for memory leaks
 memcheck: unit_tests_mc
 	$(MC) $(MCFLAGS) ./$<
-	@ rm -rf $^
 
+# Compile unit tests
 unit_tests_mc: unit_tests.o avltree.o
 	$(CC) -o $@ $^
 
@@ -21,16 +27,14 @@ unit_tests_mc: unit_tests.o avltree.o
 code_coverage: unit_tests.c avltree.c
 	@ $(CC) -o $@ $^ --coverage
 	@ echo "LAUNCHING UNIT TESTS..."
-	@ ./code_coverage
+	@ ./$@
 	@ lcov -c -d . -o ccoverage.info
 	@ genhtml -o html/ ccoverage.info  
 	@ firefox html/index.html
-	@ rm -rf *.o
 
-# Clean all executable and temporary files
-.PHONY: clean
+# Clean all executable and temporary files, clean directories
 clean:
-	@ rm -rf exec code_coverage *.d *.o *.gcda *.gcno *.info
-	@ rm -rf html/*
+	@ rm -rf $(RMEXEC) $(RMFILES)
+	@ rm -rf $(RMDIR)
 
 -include *.d
