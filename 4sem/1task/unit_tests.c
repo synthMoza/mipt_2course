@@ -2,160 +2,158 @@
 
 #define UTESTS_NUM 7
 
-// New functions used:
-// nodeInsert -> nodeInit
-//            -> nodeBalance -> nodeFixHeight           -> nodeHeight
-//                           -> nodeBFactor             -> nodeHeight
-//                           -> nodeRotateLeft/Right    -> nodeFixHeight -> nodeHeight
-// nodePrint -> nodeForEach
-//           -> nodePrintNode 
-// nodeDestroy  
 int unit_test_1() {
-    Node_t* tree = NULL;
+    avlTree_p tree = avlTreeCreate();
+    if (tree == NULL)
+        return EXIT_FAILURE;
 
-    for (int i = 0; i < 10; ++i) {
-        tree = nodeInsert(tree, 2 * i + 1);
+    for (int i = 0; i < 20; ++i) {
+        avlTreeInsert(tree, 2 * i + 1);
     }
 
-    nodePrint(tree, LNR);
-    nodePrint(tree, RNL);
-    nodePrint(tree, NLR);
-    nodePrint(tree, LRN);
+    avlTreePrint(tree, LNR);
+    avlTreePrint(tree, RNL);
+    avlTreePrint(tree, NLR);
+    avlTreePrint(tree, LRN);
 
-    nodeDestroy(tree);
+    avlTreeDestroy(&tree);
     return EXIT_SUCCESS;
 }
 
 int unit_test_2() {
-    Node_t* tree = NULL;
+    avlTree_p tree = avlTreeCreate();
+    if (tree == NULL)
+        return EXIT_FAILURE;
 
-    for (int i = 10; i > 0; --i) {
-        tree = nodeInsert(tree, 2 * i + 1);
+    for (int i = 20; i > 0; --i) {
+        avlTreeInsert(tree, 2 * i + 1);
     }
     
-    nodePrint(tree, LNR);
-    nodePrint(tree, RNL);
-    nodePrint(tree, NLR);
-    nodePrint(tree, LRN);
+    avlTreePrint(tree, LNR);
+    avlTreePrint(tree, RNL);
+    avlTreePrint(tree, NLR);
+    avlTreePrint(tree, LRN);
 
-    nodeDestroy(tree);
+    avlTreeDestroy(&tree);
     return EXIT_SUCCESS;
 }
 
-// New functions used:
-// nodeFindMin
-// nodeFindMax
 int unit_test_3() {
-    Node_t* tree = NULL;
-    Node_t* max = NULL;
-    Node_t* min = NULL;
+    avlTree_p tree = avlTreeCreate();
+    if (tree == NULL)
+        return EXIT_FAILURE;
 
-    for (int i = 0; i < 10; ++i) {
-        tree = nodeInsert(tree, 2 * i + 1);
+    int max = 0;
+    int min = 0;
+
+    for (int i = 0; i < 20; ++i) {
+        avlTreeInsert(tree, 2 * i + 1);
     }
 
-    max = nodeFindMax(tree);
-    nodeDebugPrint(max);
-    min = nodeFindMin(tree);
-    nodeDebugPrint(min);
+    max = avlTreeFindMax(tree);
+    min = avlTreeFindMin(tree);
 
-    if (max->key != 19 || min->key != 1) {
-        nodeDestroy(tree);
+    if (max != 39 || min != 1) {
+        avlTreeDestroy(&tree);
         return EXIT_FAILURE;
     }
     else {
-        nodeDestroy(tree);
+        avlTreeDestroy(&tree);
         return EXIT_SUCCESS;
     }
 }
 
-// New functions used:
-// nodeRemove -> nodeRemoveMin
 int unit_test_4() {
-    Node_t* tree = NULL;
+    avlTree_p tree = avlTreeCreate();
+    if (tree == NULL)
+        return EXIT_FAILURE;
 
-    for (int i = 0; i < 10; ++i) {
-        tree = nodeInsert(tree, i);
+    for (int i = 0; i < 20; ++i) {
+        avlTreeInsert(tree, i);
     }
 
-    for (int i = 0; i < 10; ++i) {
-        tree = nodeRemove(tree, i);
+    for (int i = 0; i < 20; ++i) {
+        avlTreeInsert(tree, i);
     }
 
-    nodeDestroy(tree);
+    avlTreeDestroy(&tree);
     return EXIT_SUCCESS;
 }
 
-// Other cases needed: 
-// nodeBalance
-// nodeRemoveMin
-// nodeRemove
 int unit_test_5() {
-    Node_t* tree = NULL;
-    int numbers[10] = {0};
+    avlTree_p tree = avlTreeCreate();
+    if (tree == NULL)
+        return EXIT_FAILURE;
 
-    tree = nodeRemove(tree, 0);
-    for (int i = 0; i < 10; ++i) {
+    int numbers[20] = {0};
+
+    avlTreeRemove(tree, 0);
+    for (int i = 0; i < 20; ++i) {
         numbers[i] = random() % 100;
-        tree = nodeInsert(tree, numbers[i]);
+        avlTreeInsert(tree, numbers[i]);
     }
 
-    for (int i = 0; i < 10; ++i) {
-        tree = nodeRemove(tree, numbers[i]);
+    for (int i = 0; i < 20; ++i) {
+        avlTreeRemove(tree, numbers[i]);
     }
 
-    nodeDestroy(tree);
+    avlTreeDestroy(&tree);
     return EXIT_SUCCESS;
 }
 
-// Other cases needed:
-// nodeForEach
-
-int callback_ut6(Node_t* node, void* data) {
+int callback_ut6(Node_p node, void* data) {
     return EXIT_FAILURE;
 }
 
 int unit_test_6() {
-    Node_t* tree = NULL;
+    avlTree_p tree = avlTreeCreate();
+    if (tree == NULL)
+        return EXIT_FAILURE;
+
     int result = 0;
 
-    for (int i = 0; i < 10; ++i) {
-        tree = nodeInsert(tree, i);
+    for (int i = 0; i < 20; ++i) {
+        avlTreeInsert(tree, i);
     }
 
-    result &= nodeForEach(tree, callback_ut6, NULL, LNR);
-    result &= nodeForEach(tree, callback_ut6, NULL, RNL);
-    result &= nodeForEach(tree, callback_ut6, NULL, NLR);
-    result &= nodeForEach(tree, callback_ut6, NULL, LRN);
+    printf("Size: %ld\n", avlTreeSize(tree));
+    result &= avlTreeForEach(tree, callback_ut6, NULL, LNR);
+    result &= avlTreeForEach(tree, callback_ut6, NULL, RNL);
+    result &= avlTreeForEach(tree, callback_ut6, NULL, NLR);
+    result &= avlTreeForEach(tree, callback_ut6, NULL, LRN);
+    result &= !avlTreeForEach(tree, callback_ut6, NULL, 9);
 
-    nodeDestroy(tree);
+    avlTreeDestroy(&tree);
     return result;
 }
 
-// Other cases needed:
-// nodeForEach
-
-int callback_ut7(Node_t* node, void* data) {
-    if (node->key % 2 == 0)
+int callback_ut7(Node_p node, void* data) {
+    if (nodeKey(node) % 2 == 0) {
+        nodeDebugPrint(node);
         return EXIT_SUCCESS;
+    }
     else
         return EXIT_FAILURE;
 }
 
 int unit_test_7() {
-    Node_t* tree = NULL;
+    avlTree_p tree = avlTreeCreate();
+    if (tree == NULL)
+        return EXIT_FAILURE;
+        
     int result = 0;
 
-    for (int i = 0; i < 10; ++i)
-        tree = nodeInsert(tree, 2 * i);
+    for (int i = 0; i < 20; ++i)
+        avlTreeInsert(tree, 2 * i); 
     
-    tree = nodeInsert(tree, 51);
-    result &= nodeForEach(tree, callback_ut7, NULL, LNR);
-    result &= nodeForEach(tree, callback_ut7, NULL, RNL);
-    result &= nodeForEach(tree, callback_ut7, NULL, NLR);
-    result &= nodeForEach(tree, callback_ut7, NULL, LRN);
+    avlTreeInsert(tree, 51);
+    printf("The found element adress: %p", avlTreeFind(tree, 10));
+    result &= avlTreeForEach(tree, callback_ut7, NULL, LNR);
+    result &= avlTreeForEach(tree, callback_ut7, NULL, RNL);
+    result &= avlTreeForEach(tree, callback_ut7, NULL, NLR);
+    result &= avlTreeForEach(tree, callback_ut7, NULL, LRN);
 
-    nodeDestroy(tree);
+    avlTreeDestroy(&tree);
     return result;
 }
 
@@ -170,7 +168,7 @@ int main() {
     int result = 0;
 
     printf("==================\n");
-    printf("Test number: %d\n", UTESTS_NUM);
+    printf("Tests number: %d\n", UTESTS_NUM);
 
     result = unit_test_1();
     printf("Test 1: ");

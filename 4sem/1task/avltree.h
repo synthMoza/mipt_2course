@@ -4,6 +4,10 @@
 #include <stdlib.h>
 #include "stdio.h"
 
+// Forward Declaration
+struct Node;
+struct avlTree;
+
 // NLR - pre-order traversal: node, left child, right child
 // LNR - in-order traversal: left child, node, right child
 // RNL - reverse in-order traversal: right child, node, left child
@@ -15,56 +19,55 @@ typedef enum treeTraversal {
 // Type of key in the node of the tree
 typedef int Elem_t;
 
-// The node structure for being used as a tree
-typedef struct Node {
-    Elem_t key;
-    unsigned char height;
-    struct Node* leftChild;
-    struct Node* rightChild;
-} Node_t;
+// Node definition
+typedef struct Node* Node_p;
 
-// API
+// Tree definition
+typedef struct avlTree* avlTree_p;
 
-// Constructs the node with the given key
-// @param node the pointer to the node
-// @param keys the key to be put into the tree
-void nodeInit(Node_t* node, Elem_t key);
+// AVL tree API
 
-// Removes the given node from the tree
-// @param node the pointer to the node
-// @param key the key to be put into the node
-// @return The pointer to the tree without the node with this key
-Node_t* nodeRemove(Node_t* node, Elem_t key);
-
-// Insert the key into the given node
-// @param node the pointer to the node
-// @param key the key to be put into the node
+// Creates the AVL tree
 // @return The pointer to the new tree
-Node_t* nodeInsert(Node_t* node, Elem_t key);
+avlTree_p avlTreeCreate();
 
-// Prints the given tree (in-order)
-// @param node the given tree
-// @param type the type of the traversal of the tree
-void nodePrint(const Node_t* node, treeTraversal type);
+// Removes the given key from the tree
+// @param tree the pointer to the tree
+// @param key the key to be removed
+void avlTreeRemove(avlTree_p tree, Elem_t key);
+
+// Inserts the given key into the tree
+// @param tree the pointer to the tree
+// @param key the key to be put into the tree
+void avlTreeInsert(avlTree_p tree, Elem_t key);
+
+// Prints the whole tree in the given order
+// @param tree the pointer to the tree
+// @param type order of bypass
+void avlTreePrint(const avlTree_p tree, treeTraversal type);
 
 // Destroys the given tree
-// @param tree the given tree
-void nodeDestroy(Node_t* node);
+// @param tree the pointer to the tree
+void avlTreeDestroy(avlTree_p* tree);
 
 // Finds the minimum key in the given tree
-// @param node the pointer to the node
-// @return The pointer to the node with the minimum key
-Node_t* nodeFindMin(Node_t* node);
+// @param tree the pointer to the tree
+// @return the minimum element from the given tree
+Elem_t avlTreeFindMin(const avlTree_p tree);
 
 // Finds the maximum key in the given tree
-// @param node the pointer to the node
-// @return The pointer to the node with the maximum key
-Node_t* nodeFindMax(Node_t* node);
+// @param tree the pointer to the tree
+// @return the maximum element from the given tree
+Elem_t avlTreeFindMax(const avlTree_p tree);
 
-// Calculates the height of the given tree
-// @param node the given tree
-// @return The actual height if the given node is not NULL, else zero
-unsigned char nodeHeight(const Node_t* node);
+// Finds the given key in the tree
+// @param tree the given tree
+// @param key the key to be found
+// @return The pointer to the found nodem otherwise NULL 
+Node_p avlTreeFind(avlTree_p tree, Elem_t key);
+
+// @return the size of the tree
+size_t avlTreeSize(const avlTree_p tree);
 
 // Bypass function for the AVL tree with the depth traversal
 // @param tree the tree to be interated by
@@ -73,8 +76,26 @@ unsigned char nodeHeight(const Node_t* node);
 // 2) It's arguments are: the pointer to the tree - (Node*) node, and the pointer to some memory - (void*) data
 // @param type the type of the traversal of the tree needed for this bypass
 // @return EXIT_SUCCESS on success, otherwise EXIT_FAILURE
-int nodeForEach(Node_t* tree, int(*callback)(Node_t* node, void* data), void* data, treeTraversal type);
+int avlTreeForEach(avlTree_p tree, int(*callback)(Node_p node, void* data), void* data, treeTraversal type);
+
+// Tree Node API
+
+// Get the value of the key of this node
+// @param node the pointer to the node
+// @return The value of the key
+Elem_t nodeKey(const Node_p node);
+
+// Calculates the height of the given tree
+// @param node the given tree
+// @return The actual height if the given node is not NULL, else zero
+unsigned char nodeHeight(const Node_p node);
 
 // Debug information about the certain node, not the whole tree
 // @param node the given tree
-void nodeDebugPrint(const Node_t* node);
+void nodeDebugPrint(const Node_p node);
+
+// Looks for the given element in the given tree
+// @param node the given tree
+// @param key element to be found
+// @return The found element if it is in the node, otherwise NULL
+Node_p nodeFind(Node_p node, Elem_t key);
