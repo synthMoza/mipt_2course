@@ -1,13 +1,18 @@
 #pragma once
 
+#define _GNU_SOURCE      
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <malloc.h>
+#include <malloc.h>       
+#include <sched.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/sysinfo.h>
 
-// The size of the memory page
-#define PAGE_SIZE 4096
-#define MAX_THREADS 16
+// The maximum number of threads
+#define MAX_THREADS 256
 
 double integrate(double (*function)(double x), double a, double b);
 double thread_integrate(double (*function)(double x), double a, double b, unsigned int nthreads);

@@ -5,41 +5,31 @@
 #include <unistd.h>
 #include <sys/time.h>
 
-// Elapse time that this expression takes
-// Variables needed: clock_t start, end
-// Result: time_used
-#define ELAPSE(EXP)                                                                     \
-do {                                                                                    \
-    gettimeofday(&timecheck, NULL);                                                     \
-    start = (long) timecheck.tv_sec * 1e06 + (long) timecheck.tv_usec;                  \
-    EXP;                                                                                \
-    gettimeofday(&timecheck, NULL);                                                     \
-    end = (long) timecheck.tv_sec * 1e06 + (long) timecheck.tv_usec;                    \
-    time_used = (end - start);                                                          \
-} while (0)                                                                             \
-
 // Function to integrate
 // @param x the argument of the function
 double function(double x) {
-    double f = sin(x) * x + log10(x);
+    double f = sin(log10(x)) + 3 * cos(x) - x;
     return f;
 }
 
 int main(int argc, char* argv[]) {
     float result = 0;
-    long start, end;
-    struct timeval timecheck;
-    double time_used;
-    //long num_threads = input(argc, argv);
+    long num_threads = input(argc, argv);
+    int ret = 0;
+    cpu_set_t cpu_set;
 
-    for (int i = 1; i < 12; ++i) {
-        ELAPSE(result = thread_integrate(function, 1, 5000, i));
-
-        //printf("Number of thread: %d\n", i);
-        //printf("The result: %g\n", result);
-        //printf("Elapsed time: %g us\n", time_used);
-        printf("%g us\n", time_used);
-    
+    if (num_threads < 1) {
+        printf("Wrong threads number!\n");
+        return EXIT_FAILURE;
     }
+
+    CPU_ZERO(&cpu_set);
+    CPU_SET(0, &cpu_set);
+
+    result = thread_integrate(function, 1, 10e6, num_threads);
+
+    printf("Number of threads: %ld\n", num_threads);
+    printf("The result: %g\n", result);
+    
     return EXIT_SUCCESS;
 }

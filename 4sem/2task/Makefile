@@ -4,7 +4,7 @@ CFLAGS = -Wall -g -MD
 all: integral
 
 integral: integral.o main.o input.o
-	$(CC) -o $@ $^ -lm -lpthread
+	$(CC) -o $@ $^ -lm -pthread
 
 %.o: %.c
 	$(CC) -c -o $@ $< $(CFLAGS)
