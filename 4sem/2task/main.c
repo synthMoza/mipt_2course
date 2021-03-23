@@ -23,9 +23,6 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    CPU_ZERO(&cpu_set);
-    CPU_SET(0, &cpu_set);
-
     result = thread_integrate(function, 1, 10e6, num_threads);
 
     printf("Number of threads: %ld\n", num_threads);
