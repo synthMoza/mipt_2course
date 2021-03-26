@@ -1,12 +1,10 @@
 #include "integral.h"
 
-
 // Integrate the given function on the given length ()
 // @param function function to be integrated
 // @param a the start of the length
 // @param b the end of the length
 double integrate(double (*function)(double x), double a, double b) {
-    while(1) {};
     unsigned int mesh = (int)(b - a) * 25; // number of lengths for numerical integration
     double eps = 1e-06; // the accuracy of calculations
     double h = (b - a) / mesh;
@@ -37,20 +35,22 @@ struct thread_data {
 };
 
 void* threadFunction(void* thread_data) {
+    // while (1) {};
     struct thread_data* thread_data_t = (struct thread_data*) thread_data;
     thread_data_t->result = integrate(thread_data_t->function, thread_data_t->a, thread_data_t->b);
     pthread_exit(EXIT_SUCCESS);
 }
 
 double thread_integrate(double (*function)(double x), double a, double b, unsigned int nthreads) {
-    struct thread_data* thread_data[nthreads];
+    struct thread_data** thread_data;
     cpu_set_t cpu_set;
     double diff = (b - a) / nthreads;
     double result = 0;
-    pthread_t thread_ids[nthreads];
+    pthread_t* thread_ids;
     int ret = 0;
     pthread_attr_t* pthread_attr = NULL; // attributes of creating threads
     int i = 0;
+    int ndummythreads = 0; // number of threads to do useless calculations
 
     // Get information about the system
     int nproc = get_nprocs(); // maximum number of threads
@@ -61,9 +61,16 @@ double thread_integrate(double (*function)(double x), double a, double b, unsign
     CPU_SET(0, &cpu_set);
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set), &cpu_set);
 
-    pthread_attr = (pthread_attr_t*) calloc(nthreads, sizeof(*pthread_attr));
+    // Other avalible cores will be filled
+    if (nthreads < nproc)
+        ndummythreads = nproc - nthreads;
 
-    // Write data for each thread
+    // Allocate space for threads data and attributes (and dummy threads too)
+    pthread_attr = (pthread_attr_t*) calloc(nthreads + ndummythreads, sizeof(*pthread_attr));
+    thread_data = (struct thread_data**) calloc(nthreads + ndummythreads, sizeof(*thread_data));
+    thread_ids = (pthread_t*) calloc(nthreads + ndummythreads, sizeof(*thread_ids));
+
+    // Write data for each active thread
     for (i = 0; i < nthreads; ++i) {
         thread_data[i] = (struct thread_data*) memalign(page_size, sizeof(struct thread_data));
         //thread_data[i] = (struct thread_data*) calloc(1, sizeof(struct thread_data));
@@ -77,6 +84,19 @@ double thread_integrate(double (*function)(double x), double a, double b, unsign
         thread_data[i]->function = function;
     }
     
+    // Data for dummy threads
+    for (int j = nthreads; j < nthreads + ndummythreads; ++j) {
+        thread_data[j] = (struct thread_data*) memalign(page_size, sizeof(struct thread_data));
+        if (thread_data[j] == NULL) {
+            printf("Error! Can't allocate memory for thread data number %d!\n", i);
+            exit(EXIT_FAILURE);
+        }
+  
+        thread_data[j]->a = a + (j - nthreads) * diff;
+        thread_data[j]->b = a + (j - nthreads + 1) * diff;
+        thread_data[j]->function = function;
+    }
+
     // Create attributes for all threads
     int ncores = (nthreads - nproc / 2); // the number of cores to be linked with two or more threads
     if (ncores < 0)
@@ -105,9 +125,11 @@ double thread_integrate(double (*function)(double x), double a, double b, unsign
         }
     }
 
-    // If there are any threads left, put them on other cores
+    int dummy_index = nthreads; // the first dummy thread index
+    // If there are any threads left, put them on other cores (and add dummy threads)
     if (dnthreads < nthreads) {
         for (i = dnthreads; i < nthreads; ++i) {
+            // Put an active thread on the core
             ret = pthread_attr_init(&pthread_attr[i]);
             if (ret != 0) {
                 printf("Error getting default attributes for threads!\n");
@@ -125,11 +147,54 @@ double thread_integrate(double (*function)(double x), double a, double b, unsign
                 printf("return - %d\n", ret);
                 exit(EXIT_FAILURE);
             }
+
+            // Put an dummy thread on that PSYSICAL core too
+            ret = pthread_attr_init(&pthread_attr[dummy_index]);
+            if (ret != 0) {
+                printf("Error getting default attributes for threads!\n");
+                printf("return - %d\n", ret);
+                exit(EXIT_FAILURE);
+            }
+            
+            CPU_ZERO(&cpu_set);
+            CPU_SET(dnthreads + 2 * (i - dnthreads) + 1, &cpu_set);
+
+            ret = pthread_attr_setaffinity_np(&pthread_attr[dummy_index], sizeof(cpu_set), &cpu_set);
+            if (ret != 0) {
+                printf("Error setting affinity attributes for threads!\n");
+                printf("return - %d\n", ret);
+                exit(EXIT_FAILURE);
+            }
+
+            dummy_index++;
+        }
+    }
+
+    // If there are any dummy threads left, put them on all other cores
+    if (dummy_index < nthreads + ndummythreads && ndummythreads != 0) {
+        for (i = dummy_index; i < ndummythreads + nthreads; ++i) {
+            ret = pthread_attr_init(&pthread_attr[i]);
+            if (ret != 0) {
+                printf("Error getting default attributes for threads!\n");
+                printf("return - %d\n", ret);
+                exit(EXIT_FAILURE);
+            }
+            
+            // Link threads to cores
+            CPU_ZERO(&cpu_set);
+            CPU_SET(i % nproc, &cpu_set);
+
+            ret = pthread_attr_setaffinity_np(&pthread_attr[i], sizeof(cpu_set), &cpu_set);
+            if (ret != 0) {
+                printf("Error setting affinity attributes for threads!\n");
+                printf("return - %d\n", ret);
+                exit(EXIT_FAILURE);
+            }
         }
     }
 
     // Launch all other threads except the main one
-    for (i = 1; i < nthreads; ++i) {    
+    for (i = 1; i < nthreads + ndummythreads; ++i) {    
             ret = pthread_create(&thread_ids[i], &pthread_attr[i], threadFunction, thread_data[i]);
             pthread_attr_destroy(&pthread_attr[i]);
             if (ret != 0) {
@@ -142,7 +207,7 @@ double thread_integrate(double (*function)(double x), double a, double b, unsign
     // Launch the main thread
     thread_data[0]->result = integrate(thread_data[0]->function, thread_data[0]->a, thread_data[0]->b);
 
-    // Collect results from all threads
+    // Collect results from all active threads
     result += thread_data[0]->result;
     free(thread_data[0]);
 
@@ -153,6 +218,15 @@ double thread_integrate(double (*function)(double x), double a, double b, unsign
         free(thread_data[i]);
     }
 
+    // Wait for dummy threads
+    for (int i = nthreads; i < nthreads + ndummythreads; ++i) {
+        //pthread_join(thread_ids[i], NULL);
+        free(thread_data[i]);
+    }
+
     free(pthread_attr);
+    free(thread_data);
+    free(thread_ids);
+
     return result;
 }

@@ -15,8 +15,6 @@ double function(double x) {
 int main(int argc, char* argv[]) {
     float result = 0;
     long num_threads = input(argc, argv);
-    int ret = 0;
-    cpu_set_t cpu_set;
 
     if (num_threads < 1) {
         printf("Wrong threads number!\n");
