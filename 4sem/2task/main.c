@@ -23,6 +23,7 @@ int main(int argc, char* argv[]) {
 
     result = thread_integrate(function, 1, 10e6, num_threads);
 
+    printf("================================\n");
     printf("Number of threads: %ld\n", num_threads);
     printf("The result: %g\n", result);
     

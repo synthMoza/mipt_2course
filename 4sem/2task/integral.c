@@ -35,18 +35,52 @@ struct thread_data {
 };
 
 void* threadFunction(void* thread_data) {
-    // while (1) {};
     struct thread_data* thread_data_t = (struct thread_data*) thread_data;
     thread_data_t->result = integrate(thread_data_t->function, thread_data_t->a, thread_data_t->b);
     pthread_exit(EXIT_SUCCESS);
 }
 
-double thread_integrate(double (*function)(double x), double a, double b, unsigned int nthreads) {
-    struct thread_data** thread_data;
-    cpu_set_t cpu_set;
+// Prepare data structures for each active thread
+void wr_data_active_threads(struct thread_data** thread_data, int nthreads, double a, double b, double (*function)(double x)) {
+    int page_size = getpagesize();  // the size of memory page
     double diff = (b - a) / nthreads;
+    // Write data for each active thread
+    for (int i = 0; i < nthreads; ++i) {
+        thread_data[i] = (struct thread_data*) memalign(page_size, sizeof(struct thread_data));
+        //thread_data[i] = (struct thread_data*) calloc(1, sizeof(struct thread_data));
+        if (thread_data[i] == NULL) {
+            printf("Error! Can't allocate memory for thread data number %d!\n", i);
+            exit(EXIT_FAILURE);
+        }
+  
+        thread_data[i]->a = a + i * diff;
+        thread_data[i]->b = a + (i + 1) * diff;
+        thread_data[i]->function = function;
+    }
+}
+
+// Prepare data structures for each dummy thread
+void wr_data_dummy_threads(struct thread_data** thread_data, int nthreads, int ndummythreads, double a, double b, double (*function)(double x)) {
+    int page_size = getpagesize();  // the size of memory page
+    double diff = (b - a) / nthreads;
+    for (int j = nthreads; j < nthreads + ndummythreads; ++j) {
+        thread_data[j] = (struct thread_data*) memalign(page_size, sizeof(struct thread_data));
+        if (thread_data[j] == NULL) {
+            printf("Error! Can't allocate memory for thread data number %d!\n", j);
+            exit(EXIT_FAILURE);
+        }
+  
+        thread_data[j]->a = a + (j - nthreads) * diff;
+        thread_data[j]->b = a + (j - nthreads + 1) * diff;
+        thread_data[j]->function = function;
+    }
+}
+
+double thread_integrate(double (*function)(double x), double a, double b, unsigned int nthreads) {
+    struct thread_data** thread_data = NULL;
+    cpu_set_t cpu_set;
     double result = 0;
-    pthread_t* thread_ids;
+    pthread_t* thread_ids = NULL;
     int ret = 0;
     pthread_attr_t* pthread_attr = NULL; // attributes of creating threads
     int i = 0;
@@ -54,7 +88,6 @@ double thread_integrate(double (*function)(double x), double a, double b, unsign
 
     // Get information about the system
     int nproc = get_nprocs(); // maximum number of threads
-    int page_size = getpagesize();  // the size of memory page
 
     // Pin the main thread to Core 0
     CPU_ZERO(&cpu_set);
@@ -70,32 +103,9 @@ double thread_integrate(double (*function)(double x), double a, double b, unsign
     thread_data = (struct thread_data**) calloc(nthreads + ndummythreads, sizeof(*thread_data));
     thread_ids = (pthread_t*) calloc(nthreads + ndummythreads, sizeof(*thread_ids));
 
-    // Write data for each active thread
-    for (i = 0; i < nthreads; ++i) {
-        thread_data[i] = (struct thread_data*) memalign(page_size, sizeof(struct thread_data));
-        //thread_data[i] = (struct thread_data*) calloc(1, sizeof(struct thread_data));
-        if (thread_data[i] == NULL) {
-            printf("Error! Can't allocate memory for thread data number %d!\n", i);
-            exit(EXIT_FAILURE);
-        }
-  
-        thread_data[i]->a = a + i * diff;
-        thread_data[i]->b = a + (i + 1) * diff;
-        thread_data[i]->function = function;
-    }
-    
-    // Data for dummy threads
-    for (int j = nthreads; j < nthreads + ndummythreads; ++j) {
-        thread_data[j] = (struct thread_data*) memalign(page_size, sizeof(struct thread_data));
-        if (thread_data[j] == NULL) {
-            printf("Error! Can't allocate memory for thread data number %d!\n", i);
-            exit(EXIT_FAILURE);
-        }
-  
-        thread_data[j]->a = a + (j - nthreads) * diff;
-        thread_data[j]->b = a + (j - nthreads + 1) * diff;
-        thread_data[j]->function = function;
-    }
+    // Write data for each active and dummy thread
+    wr_data_active_threads(thread_data, nthreads, a, b, function);
+    wr_data_dummy_threads(thread_data, nthreads, ndummythreads, a, b, function);
 
     // Create attributes for all threads
     int ncores = (nthreads - nproc / 2); // the number of cores to be linked with two or more threads
@@ -143,12 +153,13 @@ double thread_integrate(double (*function)(double x), double a, double b, unsign
 
             ret = pthread_attr_setaffinity_np(&pthread_attr[i], sizeof(cpu_set), &cpu_set);
             if (ret != 0) {
-                printf("Error setting affinity attributes for threads!\n");
+                printf("Error setting affinity attributes for active threads!\n");
                 printf("return - %d\n", ret);
                 exit(EXIT_FAILURE);
             }
 
             // Put an dummy thread on that PSYSICAL core too
+            // and set its state to detachable
             ret = pthread_attr_init(&pthread_attr[dummy_index]);
             if (ret != 0) {
                 printf("Error getting default attributes for threads!\n");
@@ -161,7 +172,13 @@ double thread_integrate(double (*function)(double x), double a, double b, unsign
 
             ret = pthread_attr_setaffinity_np(&pthread_attr[dummy_index], sizeof(cpu_set), &cpu_set);
             if (ret != 0) {
-                printf("Error setting affinity attributes for threads!\n");
+                printf("Error setting affinity attributes for dummy threads!\n");
+                printf("return - %d\n", ret);
+                exit(EXIT_FAILURE);
+            }
+            ret = pthread_attr_setdetachstate(&pthread_attr[dummy_index], PTHREAD_CREATE_DETACHED);
+            if (ret != 0) {
+                printf("Error setting detache state attributes for dummy threads!\n");
                 printf("return - %d\n", ret);
                 exit(EXIT_FAILURE);
             }
