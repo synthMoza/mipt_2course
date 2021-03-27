@@ -11,10 +11,7 @@
 #include <sys/mman.h>
 #include <sys/sysinfo.h>
 
-// The maximum number of threads
-#define MAX_THREADS 256
-
 #define min(a, b) ((a) > (b)) ? (b) : (a)
 
-double integrate(double (*function)(double x), double a, double b);
-double thread_integrate(double (*function)(double x), double a, double b, unsigned int nthreads);
+double integrate(double a, double b);
+double thread_integrate(double a, double b, unsigned int nthreads);
