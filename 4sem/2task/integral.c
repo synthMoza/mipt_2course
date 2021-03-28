@@ -47,7 +47,7 @@ void* threadFunction(void* thread_data) {
 }
 
 // Prepare data structures for each active thread
-void wr_data_active_threads(struct thread_data** thread_data, int nthreads, double a, double b, double (*function)(double x)) {
+void wr_data_active_threads(struct thread_data** thread_data, int nthreads, double a, double b) {
     int page_size = getpagesize();  // the size of memory page
     double diff = (b - a) / nthreads;
     // Write data for each active thread
@@ -65,7 +65,7 @@ void wr_data_active_threads(struct thread_data** thread_data, int nthreads, doub
 }
 
 // Prepare data structures for each dummy thread
-void wr_data_dummy_threads(struct thread_data** thread_data, int nthreads, int ndummythreads, double a, double b, double (*function)(double x)) {
+void wr_data_dummy_threads(struct thread_data** thread_data, int nthreads, int ndummythreads, double a, double b) {
     int page_size = getpagesize();  // the size of memory page
     double diff = (b - a) / nthreads;
     for (int j = nthreads; j < nthreads + ndummythreads; ++j) {
@@ -76,8 +76,8 @@ void wr_data_dummy_threads(struct thread_data** thread_data, int nthreads, int n
             exit(EXIT_FAILURE);
         }
   
-        thread_data[j]->a = a + (j - nthreads) * diff;
-        thread_data[j]->b = a + (j - nthreads + 1) * diff;
+        thread_data[j]->a = a;
+        thread_data[j]->b = a + diff;
     }
 }
 
@@ -115,6 +115,7 @@ void threads_create_atrributes(pthread_attr_t* pthread_attr, int nthreads, int n
     }
 
     int dummy_index = nthreads; // the first dummy thread index
+
     // If there are any threads left, put them on other cores (and add dummy threads)
     if (dnthreads < nthreads) {
         for (int i = dnthreads; i < nthreads; ++i) {
@@ -186,13 +187,19 @@ void threads_create_atrributes(pthread_attr_t* pthread_attr, int nthreads, int n
                 printf("return - %d\n", ret);
                 exit(EXIT_FAILURE);
             }
+
+            ret = pthread_attr_setdetachstate(&pthread_attr[i], PTHREAD_CREATE_DETACHED);
+            if (ret != 0) {
+                printf("Error setting detache state attributes for dummy threads!\n");
+                printf("return - %d\n", ret);
+                exit(EXIT_FAILURE);
+            }
         }
     }
 }
 
 double thread_integrate(double a, double b, unsigned int nthreads) {
     struct thread_data** thread_data = NULL;
-    cpu_set_t cpu_set;
     double result = 0;
     pthread_t* thread_ids = NULL;
     int ret = 0;
@@ -201,11 +208,6 @@ double thread_integrate(double a, double b, unsigned int nthreads) {
 
     // Get information about the system
     int nproc = get_nprocs(); // maximum number of threads
-
-    // Pin the main thread to Core 0
-    CPU_ZERO(&cpu_set);
-    CPU_SET(0, &cpu_set);
-    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set), &cpu_set);
 
     // Other avalible cores will be filled
     if (nthreads < nproc)
@@ -217,14 +219,14 @@ double thread_integrate(double a, double b, unsigned int nthreads) {
     thread_ids = (pthread_t*) calloc(nthreads + ndummythreads, sizeof(*thread_ids));
 
     // Write data for each active and dummy thread
-    wr_data_active_threads(thread_data, nthreads, a, b, function);
-    wr_data_dummy_threads(thread_data, nthreads, ndummythreads, a, b, function);
+    wr_data_active_threads(thread_data, nthreads, a, b);
+    wr_data_dummy_threads(thread_data, nthreads, ndummythreads, a, b);
 
     // Create attributes for all threads
     threads_create_atrributes(pthread_attr, nthreads, ndummythreads);
 
-    // Launch all other threads except the main one
-    for (int i = 1; i < nthreads + ndummythreads; ++i) {    
+    // Launch all threads
+    for (int i = 0; i < nthreads + ndummythreads; ++i) {    
             ret = pthread_create(&thread_ids[i], &pthread_attr[i], threadFunction, thread_data[i]);
             pthread_attr_destroy(&pthread_attr[i]);
             if (ret != 0) {
@@ -234,20 +236,14 @@ double thread_integrate(double a, double b, unsigned int nthreads) {
             }
     }
 
-    // Launch the main thread
-    thread_data[0]->result = integrate(thread_data[0]->a, thread_data[0]->b);
-
     // Collect results from all active threads
-    result += thread_data[0]->result;
-    free(thread_data[0]);
-
-    for (int i = 1; i < nthreads; ++i) {
+    for (int i = 0; i < nthreads; ++i) {
         pthread_join(thread_ids[i], NULL);
         
         result += thread_data[i]->result;
         free(thread_data[i]);
     }
-
+    
     // Free dummy threads data
     for (int i = nthreads; i < nthreads + ndummythreads; ++i) {
         free(thread_data[i]);
