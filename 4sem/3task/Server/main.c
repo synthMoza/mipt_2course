@@ -1,7 +1,7 @@
 #include "server.h"
 
 // The minimum amout of processors for debug
-const int MIN_PROC = 4;
+const int MIN_PROC = 8;
 // The amount of threads per each core of the CPU
 const int THREADS_PER_CORE = 2;
 // Structure that describes data to be sent to each computer
@@ -154,9 +154,9 @@ int main(int argc, char* argv[]) {
     result = thread_integrate(comp_data[0].a, comp_data[0].b, comp_data[0].nthreads);
     for (int i = 1; i < ncomp; ++i) {
         ret = recv(client_sockets[i], &tmp, sizeof(double), 0);
-        if (ret == -1) {
+        if (ret != sizeof(double)) {
             perror("");
-            printf("Error receiving results!\n");
+            printf("Error receiving results from computer %d!\n", i);
             return EXIT_FAILURE;
         }
 
