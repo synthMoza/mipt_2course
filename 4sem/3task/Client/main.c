@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
 
     // Send the result
     socklen = sizeof(client);
-    ret = send(sk, &result, sizeof(result), MSG_CONFIRM);
+    ret = send(sk, &result, sizeof(result), 0);
     if (ret != sizeof(result)) {
         perror("");
         printf("Error sending results!\n");
