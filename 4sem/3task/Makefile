@@ -1,9 +1,12 @@
 CC = gcc
 CFLAGS = -Wall -g -MD 
 
-all: server
+all: server client
 
-server: server.o main.o input.o integral.o
+client: client.o
+	$(CC) -o $@ $^ -lm -pthread
+
+server: server.o
 	$(CC) -o $@ $^ -lm -pthread
 
 input.o: ../Thread_Integrate/input.c
