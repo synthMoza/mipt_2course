@@ -12,7 +12,9 @@
 #include <ifaddrs.h>
 
 #include "Thread_Integrate/integral.h"
-#include "Thread_Integrate/input.h"
+#include "input.h"
+
+#define DEBUG
 
 #define check_return(ret, message)              \
 do {                                            \
@@ -28,4 +30,17 @@ do {                                            \
 
 #define PORT 3456
 
-int init_udp_socket(struct sockaddr_in* server);
+// The minimum amout of processors for debug
+#define MIN_PROC 4
+// The amount of threads per each core of the CPU
+#define THREADS_PER_CORE 2
+
+// Structure that describes data to be sent to each computer
+// @param a the start of the length to integrate on
+// @param b the end of the length to integrate on
+// @param nthreads the amount of threads to launch
+struct comp_data {
+    double a;
+    double b;
+    int nthreads;
+};

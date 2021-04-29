@@ -8,6 +8,8 @@ int main(int argc, char* argv[]) {
     struct sockaddr_in network;
     socklen_t socklen;
     char buf[MAX_MSG_SIZE] = {0};
+    struct comp_data data;
+    double result = 0;
 
     bzero(&network, sizeof(network));
 
@@ -50,7 +52,20 @@ int main(int argc, char* argv[]) {
     ret = connect(sk_tcp, (struct sockaddr*) &client, sizeof(client));
     check_return(ret, "Failed to connect to the server!\n");
 
+#ifdef DEBUG
     printf("Connection established!\n");
+#endif
+
+    // Accept data on threads
+    ret = recv(sk_tcp, &data, sizeof(data), 0);
+    check_return(ret, "Failed to receive comp_data!\n");
+
+    // Calculate the result
+    result = thread_integrate(data.a, data.b, data.nthreads);
+
+    // Send the result
+    ret = send(sk_tcp, &result, sizeof(result), 0);
+    check_return(ret, "Failed to send the result to the server!\n");
 
     close(sk_tcp);
     close(sk_br);

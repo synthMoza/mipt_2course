@@ -3,22 +3,19 @@ CFLAGS = -Wall -g -MD
 
 all: server client
 
-client: client.o
+client: client.o integral.o
 	$(CC) -o $@ $^ -lm -pthread
 
-server: server.o
+server: server.o input.o integral.o
 	$(CC) -o $@ $^ -lm -pthread
 
-input.o: ../Thread_Integrate/input.c
-	$(CC) -c -o $@ $< $(CFLAGS)
-
-integral.o: ../Thread_Integrate/integral.c
+integral.o: Thread_Integrate/integral.c
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 %.o: %.c
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 clean:
-	rm -rf server *.o *.d
+	rm -rf server client *.o *.d
 
 -include *.d
