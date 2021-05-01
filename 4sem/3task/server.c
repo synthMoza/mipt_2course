@@ -61,6 +61,7 @@ int main(int argc, char* argv[]) {
     double tmp = 0;
     fd_set fdset;
     struct timeval timeval;
+    int flags = 0;
 
     if (argc != 2) {
         printf("Usage: ./server <nthreads>\n");
@@ -81,9 +82,7 @@ int main(int argc, char* argv[]) {
     if (nthreads % nphys != 0)
         ncomp++;
 
-#ifdef DEBUG
     printf("Computers needed: %d\n", ncomp);
-#endif
 
     // Allocate space for information
     sk_cl = (int*) calloc(ncomp, sizeof(int));
@@ -93,8 +92,6 @@ int main(int argc, char* argv[]) {
     comp_data = (struct comp_data*) calloc(ncomp, sizeof(*comp_data));
     if (comp_data == NULL) 
         check_return(-1, "Calloc error!\n");
-
-    // Calculate data for each thread
 
     // The amount of computers that will create threads on each physical core
     int nfullcomp = nthreads / nphys; 
@@ -130,9 +127,9 @@ int main(int argc, char* argv[]) {
     server.sin_port = htons(PORT);
     server.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 
-    // Discorver IP address and sent it
+    // Discorver IP address and send it
     if (ncomp > 1) {
-        network = getNetworkAddress(1);
+        network = getNetworkAddress(INTERFACE_NUMBER);
         ret = sendto(sk_br, &network->sin_addr.s_addr, sizeof(network->sin_addr.s_addr), 0, (struct sockaddr*) &server, sizeof(server));
         check_return(ret, "Failed to send the broadcast message!\n");
     }
@@ -156,6 +153,12 @@ int main(int argc, char* argv[]) {
     ret = listen(sk_tcp, 8);
     check_return(ret, "Failed to listen to this socket!\n");
 
+    // Set the listening socket to NON_BLOCK
+    flags = fcntl(sk_tcp, F_GETFL, 0);
+    check_return(flags, "Failed to get flags of TCP socket!\n");
+    ret = fcntl(sk_tcp, F_SETFL, flags | O_NONBLOCK);
+    check_return(ret, "Failed to set NON_BLOCKING flag!\n");
+
     // Accept all computers
     FD_ZERO(&fdset);
     FD_SET(sk_tcp, &fdset);
@@ -172,10 +175,8 @@ int main(int argc, char* argv[]) {
 
         socklen = sizeof(server);
         sk_cl[i] = accept(sk_tcp, (struct sockaddr*) &server, &socklen);
-    #ifdef DEBUG
-        printf("Accepted new computer! Number: %d\n", i);
-    #endif
         check_return(sk_cl[i], "Failed to accept the connection!\n");
+        printf("Accepted new computer! Number: %d\n", i);
     }
 
     // Send data to all computers
@@ -190,6 +191,11 @@ int main(int argc, char* argv[]) {
     for (int i = 1; i < ncomp; ++i) {
         ret = recv(sk_cl[i], &tmp, sizeof(tmp), 0);
         check_return(ret, "Failed to receive data from some computer!\n");
+        if (ret == 0) {
+            printf("Lost package from computer %d!\n", i);
+            exit(EXIT_FAILURE);
+        }
+
         close(sk_cl[i]);
 
         result += tmp;

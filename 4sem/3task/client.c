@@ -6,7 +6,7 @@ int main(int argc, char* argv[]) {
     int ret = 0;
     struct sockaddr_in client;
     struct sockaddr_in network;
-    socklen_t socklen;
+    socklen_t socklen = 0;
     struct comp_data data;
     double result = 0;
 
@@ -32,9 +32,8 @@ int main(int argc, char* argv[]) {
     check_return(ret, "Failed to bind the socket!\n");
 
     // Wait for the server's message
-#ifdef DEBUG
     printf("Waiting for the server...\n");
-#endif
+    bzero(&network, sizeof(network));
     ret = recvfrom(sk_br, &network.sin_addr.s_addr, sizeof(network.sin_addr.s_addr), 0, (struct sockaddr*) &client, &socklen);
     check_return(ret, "Failed to receive a message from the server!\n");
 
@@ -54,9 +53,7 @@ int main(int argc, char* argv[]) {
     ret = connect(sk_tcp, (struct sockaddr*) &client, sizeof(client));
     check_return(ret, "Failed to connect to the server!\n");
 
-#ifdef DEBUG
     printf("Connection established!\n");
-#endif
 
     // Accept data on threads
     ret = recv(sk_tcp, &data, sizeof(data), 0);

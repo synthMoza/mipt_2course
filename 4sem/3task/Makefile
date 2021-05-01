@@ -1,8 +1,10 @@
 CC = gcc
 CFLAGS = -Wall -g -MD 
 
+# Standart version
 all: server client
 
+# Debug version with minimum amount of processors
 debug: CFLAGS += -DDEBUG
 debug: server client
 
