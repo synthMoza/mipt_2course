@@ -6,8 +6,6 @@
 #include "input.h"
 
 // Error list:
-// -1 : missing argument 'n'
-// -2 : too many arguments are provided
 // -3 : the input string is not a number
 // -4 : the input number is less than zero
 // -5 : the input number is our of range (the range is [LONG_MIN; LONG_MAX])

@@ -3,6 +3,9 @@ CFLAGS = -Wall -g -MD
 
 all: server client
 
+debug: CFLAGS += -DDEBUG
+debug: server client
+
 client: client.o integral.o
 	$(CC) -o $@ $^ -lm -pthread
 

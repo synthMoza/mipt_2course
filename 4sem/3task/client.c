@@ -7,7 +7,6 @@ int main(int argc, char* argv[]) {
     struct sockaddr_in client;
     struct sockaddr_in network;
     socklen_t socklen;
-    char buf[MAX_MSG_SIZE] = {0};
     struct comp_data data;
     double result = 0;
 
@@ -33,6 +32,9 @@ int main(int argc, char* argv[]) {
     check_return(ret, "Failed to bind the socket!\n");
 
     // Wait for the server's message
+#ifdef DEBUG
+    printf("Waiting for the server...\n");
+#endif
     ret = recvfrom(sk_br, &network.sin_addr.s_addr, sizeof(network.sin_addr.s_addr), 0, (struct sockaddr*) &client, &socklen);
     check_return(ret, "Failed to receive a message from the server!\n");
 

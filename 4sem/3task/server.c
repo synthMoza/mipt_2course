@@ -18,7 +18,10 @@ struct sockaddr_in* getNetworkAddress(int index) {
     ret = getifaddrs(&ifap);
     check_return(ret, "Failed to get network interfaces!\n");
 
+#ifdef DEBUG
     printf("List of availible IPv4 interfaces:\n");
+#endif
+
     for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
         if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET) {
             sa = (struct sockaddr_in *) ifa->ifa_addr;
@@ -56,6 +59,8 @@ int main(int argc, char* argv[]) {
     int ncomp = 0;
     double result = 0;
     double tmp = 0;
+    fd_set fdset;
+    struct timeval timeval;
 
     if (argc != 2) {
         printf("Usage: ./server <nthreads>\n");
@@ -126,9 +131,11 @@ int main(int argc, char* argv[]) {
     server.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 
     // Discorver IP address and sent it
-    network = getNetworkAddress(1);
-    ret = sendto(sk_br, &network->sin_addr.s_addr, sizeof(network->sin_addr.s_addr), 0, (struct sockaddr*) &server, sizeof(server));
-    check_return(ret, "Failed to send the broadcast message!\n");
+    if (ncomp > 1) {
+        network = getNetworkAddress(1);
+        ret = sendto(sk_br, &network->sin_addr.s_addr, sizeof(network->sin_addr.s_addr), 0, (struct sockaddr*) &server, sizeof(server));
+        check_return(ret, "Failed to send the broadcast message!\n");
+    }
 
     // Initialize TCP socket
     sk_tcp = socket(AF_INET, SOCK_STREAM, 0);
@@ -150,15 +157,31 @@ int main(int argc, char* argv[]) {
     check_return(ret, "Failed to listen to this socket!\n");
 
     // Accept all computers
+    FD_ZERO(&fdset);
+    FD_SET(sk_tcp, &fdset);
+    timeval.tv_usec = 0;
+    timeval.tv_sec = 10;
+
     for (int i = 1; i < ncomp; ++i) {
+        ret = select(sk_tcp + 1, &fdset, NULL, NULL, &timeval);
+        check_return(ret, "Select error!\n");
+        if (ret == 0) {
+            printf("Accept timeout expired!\n");
+            exit(EXIT_FAILURE);
+        }
+
+        socklen = sizeof(server);
         sk_cl[i] = accept(sk_tcp, (struct sockaddr*) &server, &socklen);
+    #ifdef DEBUG
+        printf("Accepted new computer! Number: %d\n", i);
+    #endif
         check_return(sk_cl[i], "Failed to accept the connection!\n");
     }
 
     // Send data to all computers
     for (int i = 1; i < ncomp; ++i) {
         ret = send(sk_cl[i], &comp_data[i], sizeof(comp_data[i]), 0);
-        check_return(ret, "Failed to send the data to calculate!\n");
+        check_return(ret, "Failed to send data to calculate!\n");
     }
 
     result = thread_integrate(comp_data[0].a, comp_data[0].b, comp_data[0].nthreads);
@@ -167,19 +190,17 @@ int main(int argc, char* argv[]) {
     for (int i = 1; i < ncomp; ++i) {
         ret = recv(sk_cl[i], &tmp, sizeof(tmp), 0);
         check_return(ret, "Failed to receive data from some computer!\n");
+        close(sk_cl[i]);
 
         result += tmp;
     }
 
-    printf("The result: %g\n", result);
+    printf("Number of threads: %d\n", nthreads);
+    printf("Result: %g\n", result);
 
     // Free resources
     if (network != NULL)
         free(network);
-
-    for (int i = 1; i < ncomp; ++i) {
-        close(sk_cl[i]);
-    }
 
     free(sk_cl);
     free(comp_data);

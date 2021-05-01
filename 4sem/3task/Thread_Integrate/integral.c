@@ -4,7 +4,7 @@
 // Function to integrate
 // @param x the argument of the function
 double function(double x) {
-    double f = sin(log10(x)) + 3 * cos(x) - x;
+    double f = pow(x, 2);
     return f;
 }
 

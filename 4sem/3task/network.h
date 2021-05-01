@@ -10,11 +10,10 @@
 #include <assert.h>
 #include <string.h>
 #include <ifaddrs.h>
+#include <sys/select.h>
 
 #include "Thread_Integrate/integral.h"
 #include "input.h"
-
-#define DEBUG
 
 #define check_return(ret, message)              \
 do {                                            \
@@ -25,9 +24,7 @@ do {                                            \
     }                                           \
 } while (0)
 
-#define BR_MSG "BROADCAST"
 #define MAX_MSG_SIZE 128
-
 #define PORT 3456
 
 // The minimum amout of processors for debug
