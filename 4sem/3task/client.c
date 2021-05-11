@@ -5,12 +5,10 @@ int main(int argc, char* argv[]) {
     int enable = 1; // for setsockopt
     int ret = 0;
     struct sockaddr_in client;
-    struct sockaddr_in network;
+    char buf[MAX_MSG_SIZE];
     socklen_t socklen = 0;
     struct comp_data data;
     double result = 0;
-
-    bzero(&network, sizeof(network));
 
     // Wait for the message from the router (UDP)
     sk_br = socket(AF_INET, SOCK_DGRAM, 0);
@@ -33,15 +31,13 @@ int main(int argc, char* argv[]) {
 
     // Wait for the server's message
     printf("Waiting for the server...\n");
-    bzero(&network, sizeof(network));
-    ret = recvfrom(sk_br, &network.sin_addr.s_addr, sizeof(network.sin_addr.s_addr), 0, (struct sockaddr*) &client, &socklen);
+    socklen = sizeof(client);
+    ret = recvfrom(sk_br, buf, sizeof(client.sin_addr.s_addr), 0, (struct sockaddr*) &client, &socklen);
     check_return(ret, "Failed to receive a message from the server!\n");
 
     // Now we have server's address, connect to it through TCP
-    bzero(&client, sizeof(client));
     client.sin_family = AF_INET;
     client.sin_port = htons(PORT);
-    client.sin_addr.s_addr = network.sin_addr.s_addr;
 
     // Initialize TCP socket
     sk_tcp = socket(AF_INET, SOCK_STREAM, 0);
