@@ -36,6 +36,8 @@ do {                                            \
 #define THREADS_PER_CORE 2
 // The number of the network interface
 #define INTERFACE_NUMBER 1
+// Broadcast message
+#define BR_MSG "BRMSG"
 
 // Structure that describes data to be sent to each computer
 // @param a the start of the length to integrate on

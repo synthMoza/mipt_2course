@@ -6,6 +6,7 @@ const int integrate_b = 10e6;
 
 // Get the address of the network interface with this number
 // If it doesn't exist, returns NULL
+// !!! Not being used in this program
 struct sockaddr_in* getNetworkAddress(int index) {
     int ret = 0;
     struct sockaddr_in* ret_value = NULL;
@@ -62,6 +63,7 @@ int main(int argc, char* argv[]) {
     fd_set fdset;
     struct timeval timeval;
     int flags = 0;
+    int max = 0;
 
     if (argc != 2) {
         printf("Usage: ./server <nthreads>\n");
@@ -127,10 +129,9 @@ int main(int argc, char* argv[]) {
     server.sin_port = htons(PORT);
     server.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 
-    // Discorver IP address and send it
+    // Send a message
     if (ncomp > 1) {
-        network = getNetworkAddress(INTERFACE_NUMBER);
-        ret = sendto(sk_br, &network->sin_addr.s_addr, sizeof(network->sin_addr.s_addr), 0, (struct sockaddr*) &server, sizeof(server));
+        ret = sendto(sk_br, BR_MSG, strlen(BR_MSG), 0, (struct sockaddr*) &server, sizeof(server));
         check_return(ret, "Failed to send the broadcast message!\n");
     }
 
@@ -176,6 +177,14 @@ int main(int argc, char* argv[]) {
         socklen = sizeof(server);
         sk_cl[i] = accept(sk_tcp, (struct sockaddr*) &server, &socklen);
         check_return(sk_cl[i], "Failed to accept the connection!\n");
+
+        // Set NONBLOCK flag for each socket
+        flags = fcntl(sk_cl[i], F_GETFL, 0);
+        check_return(flags, "Failed to get flags of TCP socket!\n");
+        ret = fcntl(sk_cl[i], F_SETFL, flags | O_NONBLOCK);
+        check_return(ret, "Failed to set NON_BLOCKING flag!\n");
+
+        // Send a message to the console
         printf("Accepted new computer! Number: %d\n", i);
     }
 
@@ -187,8 +196,24 @@ int main(int argc, char* argv[]) {
 
     result = thread_integrate(comp_data[0].a, comp_data[0].b, comp_data[0].nthreads);
 
+    // Generate FD_SET
+    FD_ZERO(&fdset);
+    timeval.tv_usec = 0;
+    timeval.tv_sec = 10;
+    for (int i = 1; i < ncomp; ++i) {
+        FD_SET(sk_cl[i], &fdset);
+        if (max < sk_cl[i])
+            max = sk_cl[i];
+    }
     // Accept all results
     for (int i = 1; i < ncomp; ++i) {
+        ret = select(max + 1, &fdset, NULL, NULL, &timeval);
+        check_return(ret, "Select error!\n");
+        if (ret == 0) {
+            printf("Accept timeout expired!\n");
+            exit(EXIT_FAILURE);
+        }
+
         ret = recv(sk_cl[i], &tmp, sizeof(tmp), 0);
         check_return(ret, "Failed to receive data from some computer!\n");
         if (ret == 0) {
