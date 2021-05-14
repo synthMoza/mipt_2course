@@ -73,17 +73,17 @@ int main(int argc, char* argv[]) {
     check_return(ret, "Threads sending failed!\n");
 
     // Accept data on threads
-    FD_ZERO(&fdset);
-    FD_SET(sk_tcp, &fdset);
-    timeval.tv_usec = 0;
-    timeval.tv_sec = 10;
+    // FD_ZERO(&fdset);
+    // FD_SET(sk_tcp, &fdset);
+    // timeval.tv_usec = 0;
+    // timeval.tv_sec = 10;
 
-    ret = select(sk_tcp + 1, &fdset, NULL, NULL, &timeval);
-    check_return(ret, "Select error!\n");
-    if (ret == 0) {
-        printf("Receive timeout expired!\n");
-        exit(EXIT_FAILURE);
-    }
+    // ret = select(sk_tcp + 1, &fdset, NULL, NULL, &timeval);
+    // check_return(ret, "Select error!\n");
+    // if (ret == 0) {
+    //     printf("Receive timeout expired!\n");
+    //     exit(EXIT_FAILURE);
+    // }
 
     ret = recv(sk_tcp, &data, sizeof(data), 0);
     check_return(ret, "Failed to receive comp_data!\n");

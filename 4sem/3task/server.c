@@ -29,6 +29,7 @@ int main(int argc, char* argv[]) {
     struct timeval timeval;
     int flags = 0;
     int* comp_threads = NULL;
+    int max = 0;
 
     if (argc != 2) {
         printf("Usage: ./server <ncomp>\n");
@@ -99,6 +100,11 @@ int main(int argc, char* argv[]) {
     ret = fcntl(sk_tcp, F_SETFL, flags | O_NONBLOCK);
     check_return(ret, "Failed to set NON_BLOCKING flag!\n");
 
+    // Accept all computers and recv their socket information
+    int naccepted = 0; // accepted computers
+    int nthrecv = 0; // receive threads
+    int sum = 0;
+
     // Accept all computers
     FD_ZERO(&fdset);
     FD_SET(sk_tcp, &fdset);
@@ -122,12 +128,9 @@ int main(int argc, char* argv[]) {
         // Send a message to the console
         printf("Accepted new computer! Number: %d\n", i);
     }
-
-    // Close the broadcast socket
-    close(sk_br);
+    
 
     // Accept information about each computer threads
-    int sum = 0;
     for (int i = 0; i < ncomp; ++i) {
     	ret = recv(sk_cl[i], &comp_threads[i], sizeof(comp_threads[i]), 0);
     	check_return(ret, "Failed to receive nthreads!\n");
@@ -181,5 +184,7 @@ int main(int argc, char* argv[]) {
     free(comp_threads); 
 
     close(sk_tcp);
+    close(sk_br);
+
     return 0;
 }
