@@ -8,7 +8,7 @@ all: server client
 debug: CFLAGS += -DDEBUG
 debug: server client
 
-client: client.o integral.o
+client: client.o integral.o input.o
 	$(CC) -o $@ $^ -lm -pthread
 
 server: server.o input.o integral.o

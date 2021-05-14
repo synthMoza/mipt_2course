@@ -4,45 +4,13 @@
 const int integrate_a = 1;
 const int integrate_b = 10e6;
 
-// Get the address of the network interface with this number
-// If it doesn't exist, returns NULL
-// !!! Not being used in this program
-struct sockaddr_in* getNetworkAddress(int index) {
-    int ret = 0;
-    struct sockaddr_in* ret_value = NULL;
-    int counter = 0;
-    struct ifaddrs *ifap, *ifa;
-    struct sockaddr_in *sa;
-    char *addr;
+void print_compdata(struct comp_data* comp_data, int n) {
+    assert(comp_data);
 
-    // Discover this server's IP address
-    ret = getifaddrs(&ifap);
-    check_return(ret, "Failed to get network interfaces!\n");
-
-#ifdef DEBUG
-    printf("List of availible IPv4 interfaces:\n");
-#endif
-
-    for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET) {
-            sa = (struct sockaddr_in *) ifa->ifa_addr;
-            if (counter == index) {
-                ret_value = (struct sockaddr_in*) calloc(1, sizeof(*ret_value));
-                ret_value = memcpy(ret_value, sa, sizeof(*sa));
-                break;
-            }
-
-            counter++;
-            // For printing all addresses
-            #ifdef DEBUG
-                addr = inet_ntoa(sa->sin_addr);
-                printf("Interface: %s\tAddress: %s\n", ifa->ifa_name, addr);
-            #endif
-        }
+    for (int i = 0; i < n; ++i) {
+        printf("comp_data[%d].a = %g\n", i, comp_data[i].a);
+        printf("comp_data[%d].b = %g\n", i, comp_data[i].b);
     }
-
-    freeifaddrs(ifap);
-    return ret_value;
 }
 
 int main(int argc, char* argv[]) {
@@ -54,37 +22,21 @@ int main(int argc, char* argv[]) {
     struct sockaddr_in server; // for sending messages
     struct sockaddr_in* network = NULL; // for discovering IP address
     socklen_t socklen;
-    int nthreads = 0;
-    int nproc = 0;
-    int nphys = 0;
     int ncomp = 0;
     double result = 0;
     double tmp = 0;
     fd_set fdset;
     struct timeval timeval;
     int flags = 0;
-    int max = 0;
+    int* comp_threads = NULL;
 
     if (argc != 2) {
-        printf("Usage: ./server <nthreads>\n");
+        printf("Usage: ./server <ncomp>\n");
         return EXIT_FAILURE;
     }
 
-    nthreads = input(argv[1]);
-
-     // Calculate the amount of needed computers
-#ifdef DEBUG
-    nproc = MIN_PROC;
-#else
-    nproc = get_nprocs(); // all cores
-#endif
-
-    nphys = nproc / THREADS_PER_CORE; // physical cores
-    ncomp = nthreads / nphys;
-    if (nthreads % nphys != 0)
-        ncomp++;
-
-    printf("Computers needed: %d\n", ncomp);
+    ncomp = input(argv[1]);
+    printf("Computers got: %d\n", ncomp);
 
     // Allocate space for information
     sk_cl = (int*) calloc(ncomp, sizeof(int));
@@ -94,24 +46,9 @@ int main(int argc, char* argv[]) {
     comp_data = (struct comp_data*) calloc(ncomp, sizeof(*comp_data));
     if (comp_data == NULL) 
         check_return(-1, "Calloc error!\n");
-
-    // The amount of computers that will create threads on each physical core
-    int nfullcomp = nthreads / nphys; 
-    // The difference between two threads
-    double diff = (integrate_b - integrate_a) / nthreads; 
-    for (int i = 0; i < nfullcomp; ++i) {
-        comp_data[i].a = integrate_a + i * diff * nphys;
-        comp_data[i].b = integrate_a + (i + 1) * diff * nphys;
-        comp_data[i].nthreads = nphys;
-    }
-
-    // The amount of threads for the last computer
-    if (nfullcomp != ncomp) {
-        int left_threads = nthreads % nphys;
-        comp_data[nfullcomp].a = integrate_a + nfullcomp * diff * nphys;
-        comp_data[nfullcomp].b = integrate_a + nthreads * diff;
-        comp_data[nfullcomp].nthreads = left_threads;
-    }
+    comp_threads = (int*) calloc(ncomp, sizeof(int));
+    if (comp_threads == NULL) 
+        check_return(-1, "Calloc error!\n");
 
     // Initialize UDP socket and send broadcast message
     sk_br = socket(AF_INET, SOCK_DGRAM, 0);
@@ -130,10 +67,8 @@ int main(int argc, char* argv[]) {
     server.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 
     // Send a message
-    if (ncomp > 1) {
-        ret = sendto(sk_br, BR_MSG, strlen(BR_MSG), 0, (struct sockaddr*) &server, sizeof(server));
-        check_return(ret, "Failed to send the broadcast message!\n");
-    }
+    ret = sendto(sk_br, BR_MSG, strlen(BR_MSG), 0, (struct sockaddr*) &server, sizeof(server));
+    check_return(ret, "Failed to send the broadcast message!\n");
 
     // Initialize TCP socket
     sk_tcp = socket(AF_INET, SOCK_STREAM, 0);
@@ -141,6 +76,10 @@ int main(int argc, char* argv[]) {
 
     ret = setsockopt(sk_tcp, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
     check_return(ret, "Failed to configure the socket!\n");
+
+    // Set KEEP_ALIVE option
+    ret = sktcp_keepalive(sk_tcp);
+    check_return(ret, "Failed to set KEEPALIVE option!\n");
 
     // Initialize sockaddr structure
     bzero(&server, sizeof(server));
@@ -166,7 +105,7 @@ int main(int argc, char* argv[]) {
     timeval.tv_usec = 0;
     timeval.tv_sec = 10;
 
-    for (int i = 1; i < ncomp; ++i) {
+    for (int i = 0; i < ncomp; ++i) {
         ret = select(sk_tcp + 1, &fdset, NULL, NULL, &timeval);
         check_return(ret, "Select error!\n");
         if (ret == 0) {
@@ -174,48 +113,53 @@ int main(int argc, char* argv[]) {
             exit(EXIT_FAILURE);
         }
 
-        socklen = sizeof(server);
-        sk_cl[i] = accept(sk_tcp, (struct sockaddr*) &server, &socklen);
-        check_return(sk_cl[i], "Failed to accept the connection!\n");
-
-        // Set NONBLOCK flag for each socket
-        flags = fcntl(sk_cl[i], F_GETFL, 0);
-        check_return(flags, "Failed to get flags of TCP socket!\n");
-        ret = fcntl(sk_cl[i], F_SETFL, flags | O_NONBLOCK);
-        check_return(ret, "Failed to set NON_BLOCKING flag!\n");
+        if (FD_ISSET(sk_tcp, &fdset)) {
+            socklen = sizeof(server);
+            sk_cl[i] = accept(sk_tcp, (struct sockaddr*) &server, &socklen);
+            check_return(sk_cl[i], "Failed to accept the connection!\n");
+        }
 
         // Send a message to the console
         printf("Accepted new computer! Number: %d\n", i);
     }
 
-    // Send data to all computers
+    // Close the broadcast socket
+    close(sk_br);
+
+    // Accept information about each computer threads
+    int sum = 0;
+    for (int i = 0; i < ncomp; ++i) {
+    	ret = recv(sk_cl[i], &comp_threads[i], sizeof(comp_threads[i]), 0);
+    	check_return(ret, "Failed to receive nthreads!\n");
+    	if (ret == 0)
+    			return EXIT_FAILURE;
+    	sum += comp_threads[i];
+    	printf("comp_threads[%d] = %d\n", i, comp_threads[i]);
+    }
+    printf("sum = %d\n", sum);
+
+    double diff = (integrate_b - integrate_a) / sum; 
+    comp_data[0].a = integrate_a;
+    comp_data[0].b = integrate_a + comp_threads[0] * diff;
     for (int i = 1; i < ncomp; ++i) {
+        comp_data[i].a = comp_data[i-1].b;
+        comp_data[i].b = comp_data[i].a + comp_threads[i] * diff;
+    }
+
+    print_compdata(comp_data, ncomp);
+
+    // Send data to all computers
+    for (int i = 0; i < ncomp; ++i) {
         ret = send(sk_cl[i], &comp_data[i], sizeof(comp_data[i]), 0);
         check_return(ret, "Failed to send data to calculate!\n");
     }
 
-    result = thread_integrate(comp_data[0].a, comp_data[0].b, comp_data[0].nthreads);
-
-    // Generate FD_SET
-    FD_ZERO(&fdset);
-    timeval.tv_usec = 0;
-    timeval.tv_sec = 10;
-    for (int i = 1; i < ncomp; ++i) {
-        FD_SET(sk_cl[i], &fdset);
-        if (max < sk_cl[i])
-            max = sk_cl[i];
-    }
     // Accept all results
-    for (int i = 1; i < ncomp; ++i) {
-        ret = select(max + 1, &fdset, NULL, NULL, &timeval);
-        check_return(ret, "Select error!\n");
-        if (ret == 0) {
-            printf("Accept timeout expired!\n");
-            exit(EXIT_FAILURE);
-        }
-
+    for (int i = 0; i < ncomp; ++i) {
         ret = recv(sk_cl[i], &tmp, sizeof(tmp), 0);
         check_return(ret, "Failed to receive data from some computer!\n");
+        printf("Size: %u\n", ret);
+        printf("Temp: %g\n", tmp);
         if (ret == 0) {
             printf("Lost package from computer %d!\n", i);
             exit(EXIT_FAILURE);
@@ -226,7 +170,6 @@ int main(int argc, char* argv[]) {
         result += tmp;
     }
 
-    printf("Number of threads: %d\n", nthreads);
     printf("Result: %g\n", result);
 
     // Free resources
@@ -235,8 +178,8 @@ int main(int argc, char* argv[]) {
 
     free(sk_cl);
     free(comp_data);
+    free(comp_threads); 
 
     close(sk_tcp);
-    close(sk_br);
     return 0;
 }

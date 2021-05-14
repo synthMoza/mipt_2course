@@ -14,6 +14,8 @@
 #include <ifaddrs.h>
 #include <sys/select.h>
 #include <fcntl.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 
 #include "Thread_Integrate/integral.h"
 #include "input.h"
@@ -46,5 +48,27 @@ do {                                            \
 struct comp_data {
     double a;
     double b;
-    int nthreads;
 };
+
+int sktcp_keepalive(int sk_tcp) {
+    int enable = 1;
+    int ret = 0;
+
+    if (sk_tcp <= 0)
+        return -1;
+    
+    // Enable keep alive option
+    ret = setsockopt(sk_tcp, SOL_SOCKET, SO_KEEPALIVE, &enable, sizeof(enable));
+    check_return(ret, "Failed to configure the socket!\n");
+    int idle = 9;
+    ret = setsockopt(sk_tcp, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(idle));
+    check_return(ret, "Failed to configure the socket!\n");
+    int interval = 1;
+    ret = setsockopt(sk_tcp, IPPROTO_TCP, TCP_KEEPINTVL, &interval, sizeof(interval));
+    check_return(ret, "Failed to configure the socket!\n");
+    int maxpkt = 3;
+    ret = setsockopt(sk_tcp, IPPROTO_TCP, TCP_KEEPCNT, &maxpkt, sizeof(maxpkt));
+    check_return(ret, "Failed to configure the socket!\n");
+
+    return 0;
+}
