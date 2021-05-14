@@ -29,6 +29,7 @@ int main(int argc, char* argv[]) {
     struct timeval timeval;
     int flags = 0;
     int* comp_threads = NULL;
+    int max = 0;
 
     if (argc != 2) {
         printf("Usage: ./server <ncomp>\n");
@@ -99,44 +100,65 @@ int main(int argc, char* argv[]) {
     ret = fcntl(sk_tcp, F_SETFL, flags | O_NONBLOCK);
     check_return(ret, "Failed to set NON_BLOCKING flag!\n");
 
-    // Accept all computers
-    FD_ZERO(&fdset);
-    FD_SET(sk_tcp, &fdset);
-    timeval.tv_usec = 0;
-    timeval.tv_sec = 10;
-
-    for (int i = 0; i < ncomp; ++i) {
-        ret = select(sk_tcp + 1, &fdset, NULL, NULL, &timeval);
-        check_return(ret, "Select error!\n");
-        if (ret == 0) {
-            printf("Accept timeout expired!\n");
-            exit(EXIT_FAILURE);
-        }
-
-        if (FD_ISSET(sk_tcp, &fdset)) {
-            socklen = sizeof(server);
-            sk_cl[i] = accept(sk_tcp, (struct sockaddr*) &server, &socklen);
-            check_return(sk_cl[i], "Failed to accept the connection!\n");
-        }
-
-        // Send a message to the console
-        printf("Accepted new computer! Number: %d\n", i);
-    }
-
-    // Close the broadcast socket
-    close(sk_br);
-
-    // Accept information about each computer threads
+    // Accept all computers and recv their socket information
+    int naccepted = 0; // accepted computers
+    int nthrecv = 0; // receive threads
     int sum = 0;
-    for (int i = 0; i < ncomp; ++i) {
-    	ret = recv(sk_cl[i], &comp_threads[i], sizeof(comp_threads[i]), 0);
-    	check_return(ret, "Failed to receive nthreads!\n");
-    	if (ret == 0)
-    			return EXIT_FAILURE;
-    	sum += comp_threads[i];
-    	printf("comp_threads[%d] = %d\n", i, comp_threads[i]);
+    while (1) {
+        printf("naccepted = %d\n", naccepted);
+        if (naccepted == ncomp && nthrecv == ncomp)
+            break;
+
+        // Add the server socket and client's one each iteration
+        FD_ZERO(&fdset);
+        FD_SET(sk_tcp, &fdset);
+
+        timeval.tv_usec = 0;
+        timeval.tv_sec = 10;
+
+        max = sk_tcp;
+        for (int i = 0; i < naccepted; ++i) {
+            // Add all accepted computers to the file set
+            FD_SET(sk_cl[i], &fdset);
+            if (max < sk_cl[i])
+                max = sk_cl[i];
+        }
+
+        ret = select(max + 1, &fdset, NULL, NULL, &timeval);
+        check_return(ret, "Select error!\n");
+        if (ret == 0)
+            break;
+            
+        if (FD_ISSET(sk_tcp, &fdset)) {
+            // Accept new connection
+            socklen = sizeof(server);
+            sk_cl[naccepted] = accept(sk_tcp, (struct sockaddr*) &server, &socklen);
+            check_return(sk_cl[naccepted], "Failed to accept the connection!\n");
+
+            // Send a message to the console
+            printf("Accepted new computer! Number: %d\n", naccepted);
+            naccepted++;
+        }
+
+        for (int i = 0; i < naccepted; ++i) {
+            if (FD_ISSET(sk_cl[i], &fdset)) {
+                // Receive thread info
+                ret = recv(sk_cl[i], &comp_threads[i], sizeof(comp_threads[i]), 0);
+                check_return(ret, "Failed to receive nthreads!\n");
+                if (ret == 0)
+                        return EXIT_FAILURE;
+
+                sum += comp_threads[i];
+                nthrecv++;
+                printf("comp_threads[%d] = %d\n", i, comp_threads[i]);
+            }
+        }
     }
-    printf("sum = %d\n", sum);
+
+    if (naccepted != ncomp || nthrecv != ncomp) {
+        printf("Some computers didn't manage to connect!\n");
+        return EXIT_FAILURE;
+    }
 
     double diff = (integrate_b - integrate_a) / sum; 
     comp_data[0].a = integrate_a;
@@ -181,5 +203,7 @@ int main(int argc, char* argv[]) {
     free(comp_threads); 
 
     close(sk_tcp);
+    close(sk_br);
+
     return 0;
 }
