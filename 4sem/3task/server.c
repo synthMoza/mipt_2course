@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
     int ret = 0;
     int enable = 1;
     struct sockaddr_in server; // for sending messages
-    struct sockaddr_in* network = NULL; // for discovering IP address
+    struct sockaddr_in tcp_server;
     socklen_t socklen;
     int ncomp = 0;
     double result = 0;
@@ -29,6 +29,7 @@ int main(int argc, char* argv[]) {
     struct timeval timeval;
     int flags = 0;
     int* comp_threads = NULL;
+    int* received = NULL;
     int max = 0;
 
     if (argc != 2) {
@@ -67,10 +68,6 @@ int main(int argc, char* argv[]) {
     server.sin_port = htons(PORT);
     server.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 
-    // Send a message
-    ret = sendto(sk_br, BR_MSG, strlen(BR_MSG), 0, (struct sockaddr*) &server, sizeof(server));
-    check_return(ret, "Failed to send the broadcast message!\n");
-
     // Initialize TCP socket
     sk_tcp = socket(AF_INET, SOCK_STREAM, 0);
     check_return(sk_tcp, "Failed to create TCP socket!\n");
@@ -83,12 +80,12 @@ int main(int argc, char* argv[]) {
     check_return(ret, "Failed to set KEEPALIVE option!\n");
 
     // Initialize sockaddr structure
-    bzero(&server, sizeof(server));
-    server.sin_family = AF_INET;
-    server.sin_port = htons(PORT);
-    server.sin_addr.s_addr = htonl(INADDR_ANY);
+    bzero(&tcp_server, sizeof(server));
+    tcp_server.sin_family = AF_INET;
+    tcp_server.sin_port = htons(PORT);
+    tcp_server.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    ret = bind(sk_tcp, (struct sockaddr*) &server, sizeof(server));
+    ret = bind(sk_tcp, (struct sockaddr*) &tcp_server, sizeof(tcp_server));
     check_return(ret, "Failed to bind TCP socket!\n");
 
     ret = listen(sk_tcp, 8);
@@ -99,6 +96,10 @@ int main(int argc, char* argv[]) {
     check_return(flags, "Failed to get flags of TCP socket!\n");
     ret = fcntl(sk_tcp, F_SETFL, flags | O_NONBLOCK);
     check_return(ret, "Failed to set NON_BLOCKING flag!\n");
+
+    // Send a message
+    ret = sendto(sk_br, BR_MSG, strlen(BR_MSG), 0, (struct sockaddr*) &server, sizeof(server));
+    check_return(ret, "Failed to send the broadcast message!\n");
 
     // Accept all computers and recv their socket information
     int naccepted = 0; // accepted computers
@@ -116,15 +117,12 @@ int main(int argc, char* argv[]) {
         timeval.tv_usec = 0;
         timeval.tv_sec = 10;
 
-        max = sk_tcp;
         for (int i = 0; i < naccepted; ++i) {
             // Add all accepted computers to the file set
             FD_SET(sk_cl[i], &fdset);
-            if (max < sk_cl[i])
-                max = sk_cl[i];
         }
 
-        ret = select(max + 1, &fdset, NULL, NULL, &timeval);
+        ret = select(FD_SETSIZE, &fdset, NULL, NULL, &timeval);
         check_return(ret, "Select error!\n");
         if (ret == 0)
             break;
@@ -177,33 +175,72 @@ int main(int argc, char* argv[]) {
     }
 
     // Accept all results
-    for (int i = 0; i < ncomp; ++i) {
-        ret = recv(sk_cl[i], &tmp, sizeof(tmp), 0);
-        check_return(ret, "Failed to receive data from some computer!\n");
-        printf("Size: %u\n", ret);
-        printf("Temp: %g\n", tmp);
-        if (ret == 0) {
-            printf("Lost package from computer %d!\n", i);
-            exit(EXIT_FAILURE);
+    int nreceived = 0;
+    received = (int*) calloc(ncomp, sizeof(int));
+    if (received == NULL) {
+        printf("Calloc error!\n");
+        return EXIT_FAILURE;
+    }
+
+    for (;;) {
+        printf("nreceived = %d\n", nreceived);
+        if (nreceived == ncomp)
+            break;
+
+        FD_ZERO(&fdset);
+        timeval.tv_usec = 0;
+        timeval.tv_sec = 10;
+
+        for (int i = 0; i < ncomp; ++i) {
+            // Add all computers to the file set
+            if (received[i] == 0)
+                FD_SET(sk_cl[i], &fdset);
         }
 
-        close(sk_cl[i]);
+        ret = select(FD_SETSIZE, &fdset, NULL, NULL, &timeval);
+        check_return(ret, "Select error (receive results)!\n");
+        if (ret == 0)
+            break;
 
-        result += tmp;
+        printf("Ready - %d\n", ret);
+        for (int i = 0; i < ncomp; ++i) {
+            if (FD_ISSET(sk_cl[i], &fdset)) {
+                // Receive data from this client
+                printf("He is ready - %d\n", sk_cl[i]);
+                ret = recv(sk_cl[i], &tmp, sizeof(tmp), 0);
+                check_return(ret, "Failed to receive data from some computer!\n");
+                if (ret == 0) {
+                    printf("Received result size is 0!\n");
+                    printf("nreceived = %d\n", nreceived);
+                    return EXIT_FAILURE;
+                }
+
+                printf("Computer %d\n", i);
+                printf("Size: %u\n", ret);
+                printf("Data: %g\n", tmp);
+                received[i] = 1;
+                nreceived++;
+                result += tmp;
+            } 
+        }
+    }
+
+    if (ncomp != nreceived) {
+        printf("Failed to receive results from some computer!\n");
+        return EXIT_FAILURE;
     }
 
     printf("Result: %g\n", result);
 
-    // Free resources
-    if (network != NULL)
-        free(network);
-
     free(sk_cl);
     free(comp_data);
-    free(comp_threads); 
+    free(comp_threads);
+    free(received);
 
     close(sk_tcp);
     close(sk_br);
+    for (int i = 0; i < ncomp; ++i)
+        close(sk_cl[i]);
 
     return 0;
 }

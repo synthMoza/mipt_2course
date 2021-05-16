@@ -58,8 +58,8 @@ int main(int argc, char* argv[]) {
     check_return(ret, "Failed to configure the socket!\n");
 
     // Enable keep alive option
-    ret = sktcp_keepalive(sk_tcp);
-    check_return(ret, "Failed to set KEEPALIVE option!\n");
+    // ret = sktcp_keepalive(sk_tcp);
+    // check_return(ret, "Failed to set KEEPALIVE option!\n");
 
     // Connect to the server
     ret = connect(sk_tcp, (struct sockaddr*) &client, sizeof(client));
@@ -95,6 +95,7 @@ int main(int argc, char* argv[]) {
     // Send the result
     ret = send(sk_tcp, &result, sizeof(result), 0);
     check_return(ret, "Failed to send the result to the server!\n");
+    printf("Sent size: %d\n", ret);
 
     close(sk_tcp);
     return 0;
